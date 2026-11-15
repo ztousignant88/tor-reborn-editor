@@ -1,0 +1,12 @@
+/projects/
+/backups/
+/maps/
+/Data/
+/loader-source/build/
+.zig-cache/
+zig-cache/
+__pycache__/
+*.py[cod]
+*.dat
+*.exe
+*.sav

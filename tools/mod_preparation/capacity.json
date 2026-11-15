@@ -1,0 +1,23 @@
+{
+  "version": 5,
+  "headroomAfterActiveAllocations": {
+    "Items": 128,
+    "Equipment": 128,
+    "Effects (spells, active abilities and finishers)": 128,
+    "Skills": 128,
+    "Character templates": 256,
+    "Classes": 64,
+    "Class-change groups": 256,
+    "Physical races": null,
+    "Skill permission groups": 64,
+    "Spell permission groups": 64,
+    "Equipment permission groups": 64,
+    "Equipment bonus sets": 32,
+    "Automatic spell loadouts": 128
+  },
+  "classChangeGroupStart": 256,
+  "itemTableLimit": 1000,
+  "nativeSpellPresetCount": 240,
+  "nativeCharacterTemplateCount": 512,
+  "characterTemplateLimit": 1000
+}

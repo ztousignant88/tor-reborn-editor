@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TO:R Editor</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">⚔</span>
+      <span class="brand-name">TO:R Editor</span>
+    </div>
+    <nav class="modes" id="modes">
+      <button data-mode="battles" class="on">Battles</button>
+      <button data-mode="cutscenes">Cutscenes</button>
+      <button data-mode="maps">Maps</button>
+      <button data-mode="data">Stats &amp; Values</button>
+    </nav>
+    <div class="data-path" title="Game data folder">
+      <span class="label">Project</span>
+      <span id="project-name" class="project-name">none</span>
+      <span class="label">Game data</span>
+      <span id="data-path">…</span>
+      <span class="ro-badge">read-only</span>
+    </div>
+    <div class="actions">
+      <button id="undo" class="ghost" title="Undo (Ctrl+Z)" disabled>↶ Undo</button>
+      <button id="redo" class="ghost" title="Redo (Ctrl+Y)" disabled>↷ Redo</button>
+      <div class="menu-wrap files">
+        <button id="files-btn" class="ghost" aria-haspopup="menu" aria-expanded="false" aria-controls="files-menu">Files ▾</button>
+        <div id="files-menu" class="menu-pop files-menu" role="menu" aria-label="Files" hidden>
+          <div id="files-project" class="menu-head"></div>
+          <button role="menuitem" data-act="new">New project…</button>
+          <button role="menuitem" data-act="save">Save project</button>
+          <button role="menuitem" data-act="saveas">Save project as…</button>
+          <button role="menuitem" data-act="merge" disabled>Merge Projects…</button>
+          <button role="menuitem" data-act="load">Load project…</button>
+          <button role="menuitem" data-act="apply">Apply project to the game…</button>
+          <hr>
+          <button role="menuitem" id="art-open">Art importer/exporter…</button>
+          <hr>
+          <button role="menuitem" data-act="restore" title="Put back every original file the editor has changed">Restore originals…</button>
+        </div>
+      </div>
+      <button id="save" class="primary" title="Save (Ctrl+S)" disabled>Saved</button>
+      <button id="integrated-mods-btn" class="ghost" type="button" data-mode="mods" aria-controls="data-layout">Integrated Mods</button>
+      <div class="settings">
+        <button id="settings-btn" class="ghost" aria-haspopup="true" aria-expanded="false" aria-controls="settings-menu" title="Settings">⚙ Settings</button>
+        <div id="settings-menu" class="settings-menu" role="dialog" aria-label="Settings" hidden>
+          <label class="setting">Text language <select id="lang"></select></label>
+          <label class="setting check"><input type="checkbox" id="hide-unknown"> Hide unknown values</label>
+          <p class="hint">Hides fields nobody has worked out yet (names starting with "?" or marked &lt;unused&gt;) and a unit's raw bytes.</p>
+          <label class="setting check"><input id="toggle-light" type="checkbox" checked> Map lighting</label>
+          <label class="setting check"><input id="toggle-animated-tiles" type="checkbox" checked> Animated map tiles</label>
+          <label class="setting check"><input id="toggle-sprites-over-terrain" type="checkbox" checked> Sprites over terrain</label>
+          <p class="hint">Keeps complete characters and effects visible over the map. Turn off to let walls and other map geometry hide them.</p>
+          <p class="hint">Applies to battle, map and cutscene views. Turn tile animation off to show a still frame of water and other animated terrain.</p>
+          <label class="setting" for="effect-glow">Effect glow <input id="effect-glow" aria-label="Effect glow" type="range" min="0" max="100" step="5" value="35"><output id="effect-glow-value" for="effect-glow">35%</output></label>
+          <p class="hint">Controls light from spell and skill effects in every preview. Lower it to keep bright glows from washing out the artwork.</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <dialog id="project-dialog" class="project-dialog" aria-labelledby="pd-title">
+    <form method="dialog">
+      <h2 id="pd-title">Load a project</h2>
+      <p id="pd-hint" class="hint"></p>
+      <div id="pd-list" class="pd-list" role="radiogroup" aria-labelledby="pd-title"></div>
+      <div id="pd-options" class="pd-options"></div>
+      <div class="pd-actions">
+        <button value="cancel" class="ghost" formnovalidate>Cancel</button>
+        <button id="pd-ok" value="ok" class="primary">Load</button>
+      </div>
+    </form>
+  </dialog>
+
+  <main class="layout" id="battles-layout">
+    <aside class="sidebar">
+      <div class="sidebar-head">
+        <h2>Battles <span id="battle-count" class="count"></span></h2>
+        <input id="search" type="search" placeholder="Search name, file, unit…">
+      </div>
+      <div id="battle-list" class="battle-list"></div>
+    </aside>
+
+    <section class="stage">
+      <div class="stage-head">
+        <div class="stage-title">
+          <h1 id="battle-title">Loading…</h1>
+          <button id="rename" class="icon" title="Name this battle">✎</button>
+          <span id="battle-meta" class="meta"></span>
+          <button id="battle-conditions" type="button">Pre-battle conditions…</button>
+          <button id="battle-dialogue" class="scene-battle-link" type="button" hidden title="Open the cutscene linked to this battle use">Open cutscene →</button>
+        </div>
+        <div class="map-controls">
+          <label class="map-pick" id="battle-context-picker" hidden>Battle use <select id="battle-context" aria-label="Recorded battle use"></select></label>
+          <label class="map-pick">Map <select id="map-select"></select></label>
+          <button id="map-reset" type="button" disabled>Use recorded map</button>
+          <button id="map-legacy" type="button" hidden>Use previous map choice</button>
+          <div class="seg" id="view-mode" title="3D map uses the game's own map model and textures">
+            <button data-view="3d" class="on">3D map</button>
+            <button data-view="2d">2D grid</button>
+          </div>
+          <div class="seg">
+            <button id="rot-left" title="Rotate left (Q)">⟲</button>
+            <button id="fit" title="Fit map to view">Fit</button>
+            <button id="rot-right" title="Rotate right (E)">⟳</button>
+          </div>
+          <select id="color-mode" class="only-2d" title="Tile colouring">
+            <option value="height">Colour: height</option>
+            <option value="surface">Colour: surface code</option>
+          </select>
+          <label class="toggle only-2d"><input id="toggle-heights" type="checkbox"> Heights</label>
+          <label class="toggle only-2d"><input id="toggle-ontop" type="checkbox" checked> Units on top</label>
+          <label class="toggle only-3d" title="Draw units with their in-game sprites (off: plain tokens)"><input id="toggle-sprites" type="checkbox" checked> Sprites</label>
+          <label class="toggle" title="Outline friendly starting tiles recorded in this formation. This does not show the complete area allowed for free deployment."><input id="toggle-start-tiles" type="checkbox" checked> Friendly starts</label>
+          <label class="toggle only-3d" title="Animate units walking in place using their original sprite frames"><input id="toggle-unit-walking" type="checkbox" checked> Walking</label>
+          <label class="toggle only-3d" title="Hide overhead unit markers and the coloured circles at their feet"><input id="toggle-unit-icons" type="checkbox"> Hide icons</label>
+        </div>
+        <p id="battle-mapping-note" class="mapping-note" hidden></p>
+        <div id="warnings" class="warnings"></div>
+      </div>
+      <div class="map-wrap">
+        <canvas id="map"></canvas>
+        <div id="map3d" class="map3d" hidden>
+          <canvas id="map3d-gl"></canvas>
+          <canvas id="map3d-overlay"></canvas>
+        </div>
+        <div id="hover-info" class="hover-info">Hover a tile or unit · drag units to move · scroll to zoom · drag to pan</div>
+      </div>
+      <div class="roster">
+        <div class="roster-head">
+          <h2>Units</h2><span id="roster-count" class="count"></span>
+          <div class="roster-actions">
+            <select id="add-side" title="Which side a character added with “Add a character” fights on" disabled>
+              <option value="guest">Your side, AI guest</option>
+              <option value="player">Your side, you control</option>
+              <option value="enemy">Enemy</option>
+            </select>
+            <select id="add-character" title="Add a story character, on the field, on the side chosen to the left (and in the cutscene that starts this battle)" disabled><option value="">+ Add special character…</option></select>
+            <select id="add-generic" aria-label="Add generic" title="Quick-add a generic class and race, with a random sheet, random name, random element and class battle AI" disabled><option value="">+ Add generic…</option></select>
+            <button id="add-unit" title="Add a copy of the selected unit on the nearest free tile" disabled>+ Duplicate unit</button>
+            <button id="remove-unit" class="ghost danger" title="Remove the selected unit" disabled>Remove</button>
+          </div>
+        </div>
+        <div class="roster-scroll">
+          <table id="roster">
+            <thead><tr><th>Slot</th><th>Name</th><th>Class</th><th>Lv</th><th>X, Y</th><th>Ht</th><th>Element</th><th>Team</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <aside id="inspector" class="inspector"></aside>
+  </main>
+
+  <main class="layout" id="cutscenes-layout" hidden>
+    <aside class="sidebar">
+      <div class="sidebar-head">
+        <h2>Cutscenes <span id="cs-count" class="count"></span></h2>
+        <input id="cs-search" type="search" placeholder="Filter by file name…">
+      </div>
+      <div id="cs-list" class="battle-list"></div>
+    </aside>
+
+    <section class="stage cs-stage">
+      <div class="stage-head">
+        <div class="stage-title">
+          <h1 id="cs-title">Choose a cutscene</h1>
+          <span id="cs-meta" class="meta"></span>
+          <button id="cs-open-battle" class="scene-battle-link" type="button" hidden>Open battle →</button>
+        </div>
+        <div class="map-controls">
+          <label class="map-pick" title="Each scene file holds one or more parts, each a main script plus its helper scripts">Part <select id="cs-script"></select></label>
+          <label class="map-pick">Map <select id="cs-map-select"></select></label>
+          <button id="cs-fit" title="Fit map to view">Fit</button>
+          <label class="toggle"><input id="cs-hide-dialogue" type="checkbox"> Hide dialogue</label>
+          <label class="toggle" title="Hide overhead unit markers and the circles at their feet"><input id="cs-hide-icons" type="checkbox"> Hide icons</label>
+        </div>
+      </div>
+      <div class="map-wrap">
+        <canvas id="cs-map"></canvas>
+        <div id="cs-3d" class="map3d" hidden>
+          <canvas id="cs-gl"></canvas>
+          <canvas id="cs-overlay"></canvas>
+        </div>
+        <div id="cs-speech" class="speech" hidden>
+          <div class="speech-head"><b id="cs-speaker"></b><span id="cs-speech-voice"></span></div>
+          <div id="cs-speech-text"></div>
+        </div>
+        <div id="cs-hover" class="hover-info">Drag to orbit · right-drag to pan · scroll to zoom</div>
+      </div>
+      <div class="cs-footer">
+        <div class="transport">
+          <div class="seg">
+            <button id="cs-start" title="Back to the start (Home)">⏮</button>
+            <button id="cs-prev" title="Previous step (←)">◀</button>
+            <button id="cs-play" class="play" title="Play / pause (Space)">▶</button>
+            <button id="cs-next" title="Next step (→)">▶|</button>
+            <button id="cs-end" title="Jump to the end">⏭</button>
+          </div>
+          <input id="cs-step" type="range" min="-1" max="0" value="-1">
+          <select id="cs-speed" title="Playback speed"><option value="0.5">½×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option></select>
+          <div id="cs-step-label" class="step-label">Choose a cutscene on the left.</div>
+        </div>
+        <div class="cs-preview-options">
+          <label id="cs-battle-units-label" hidden><input id="cs-battle-units" type="checkbox" checked> Battle start units</label>
+          <label id="cs-conditional-units-label" hidden title="Include possible units whose appearance conditions are not yet decoded. This does not determine which ones the live battle selects."><input id="cs-conditional-units" type="checkbox"> Include conditional units</label>
+          <label id="cs-start-tiles-label" hidden><input id="cs-start-tiles" type="checkbox" checked> Friendly start tiles</label>
+        </div>
+        <p id="cs-context-note" class="mapping-note" hidden></p>
+        <div id="cs-stepedit" class="stepedit" hidden></div>
+      </div>
+    </section>
+
+    <aside class="inspector">
+      <div class="insp-head">
+        <div id="cs-tabs" class="tabs"><button data-panel="lines" class="on">Dialogue</button><button data-panel="cast">Cast</button><button data-panel="after">After events</button></div>
+        <label class="cs-all-parts"><input id="cs-all-parts" type="checkbox" checked> Show dialogue from all parts</label>
+        <div id="cs-panel-sub" class="insp-sub">Edit lines in the current text language. Editing a voiced line switches its voice off so the speech matches the text.</div>
+      </div>
+      <div id="cs-lines" class="lines"></div>
+      <div id="cs-cast" class="lines" hidden></div>
+      <div id="cs-after" class="lines" hidden></div>
+    </aside>
+  </main>
+
+  <main class="layout" id="data-layout" hidden></main>
+  <main class="layout" id="maps-layout" hidden></main>
+
+  <footer class="statusbar"><span id="status">Starting…</span></footer>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

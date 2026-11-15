@@ -1,0 +1,1707 @@
+{
+"note": "built by editor/tools/build_cast_index.py",
+"looks": [
+{
+"character": 1,
+"portrait": 119,
+"sprite": 29,
+"uses": 105,
+"donors": [
+"C1_ST_010.dat",
+"C1_ST_030.dat",
+"C1_ST_060.dat"
+]
+},
+{
+"character": 1,
+"portrait": 123,
+"sprite": 30,
+"uses": 3,
+"donors": [
+"C4_ST_048.dat",
+"C4_ST_196.dat",
+"DLC_ST_056.dat"
+]
+},
+{
+"character": 1,
+"portrait": 119,
+"sprite": 2,
+"uses": 1,
+"donors": [
+"EP_ST_580.dat"
+]
+},
+{
+"character": 2,
+"portrait": 630,
+"sprite": 119,
+"uses": 42,
+"donors": [
+"C1_ST_010.dat",
+"C1_ST_030.dat",
+"C1_ST_060.dat"
+]
+},
+{
+"character": 2,
+"portrait": 630,
+"sprite": 4,
+"uses": 1,
+"donors": [
+"EP_ST_580.dat"
+]
+},
+{
+"character": 3,
+"portrait": 320,
+"sprite": 64,
+"uses": 57,
+"donors": [
+"C1_ST_010.dat",
+"C1_ST_030.dat",
+"C1_ST_060.dat"
+]
+},
+{
+"character": 3,
+"portrait": 323,
+"sprite": 66,
+"uses": 3,
+"donors": [
+"C4_ST_056.dat",
+"C4_ST_060.dat",
+"C4_ST_088.dat"
+]
+},
+{
+"character": 3,
+"portrait": 320,
+"sprite": 3,
+"uses": 1,
+"donors": [
+"EP_ST_580.dat"
+]
+},
+{
+"character": 4,
+"portrait": 357,
+"sprite": 71,
+"uses": 22,
+"donors": [
+"C1_ST_030.dat",
+"C1_ST_060.dat",
+"C1_ST_070.dat"
+]
+},
+{
+"character": 4,
+"portrait": 357,
+"sprite": 1,
+"uses": 1,
+"donors": [
+"EP_ST_580.dat"
+]
+},
+{
+"character": 5,
+"portrait": 639,
+"sprite": 123,
+"uses": 19,
+"donors": [
+"C1_ST_030.dat",
+"C1_ST_060.dat",
+"C1_ST_070.dat"
+]
+},
+{
+"character": 5,
+"portrait": 639,
+"sprite": 130,
+"uses": 1,
+"donors": [
+"EP_ST_580.dat"
+]
+},
+{
+"character": 6,
+"portrait": 78,
+"sprite": 21,
+"uses": 46,
+"donors": [
+"C1_ST_030.dat",
+"C1_ST_060.dat",
+"C1_ST_070.dat"
+]
+},
+{
+"character": 7,
+"portrait": 399,
+"sprite": 84,
+"uses": 26,
+"donors": [
+"C1_ST_030.dat",
+"C1_ST_070.dat",
+"C3a_ST_040.dat"
+]
+},
+{
+"character": 8,
+"portrait": 280,
+"sprite": 58,
+"uses": 17,
+"donors": [
+"C1_ST_030.dat",
+"C1_ST_070.dat",
+"C2a_ST_227.dat"
+]
+},
+{
+"character": 9,
+"portrait": 511,
+"sprite": 106,
+"uses": 19,
+"donors": [
+"C2a_ST_190.dat",
+"C3a_ST_060.dat",
+"C3b_ST_380.dat"
+]
+},
+{
+"character": 10,
+"portrait": 512,
+"sprite": 107,
+"uses": 11,
+"donors": [
+"C4_ST_158.dat",
+"C4_ST_216.dat",
+"C4_ST_226.dat"
+]
+},
+{
+"character": 11,
+"portrait": 515,
+"sprite": 108,
+"uses": 21,
+"donors": [
+"C1_ST_140.dat",
+"C2a_ST_160.dat",
+"C2a_ST_180.dat"
+]
+},
+{
+"character": 12,
+"portrait": 454,
+"sprite": 93,
+"uses": 26,
+"donors": [
+"C4_ST_008.dat",
+"C4_ST_012.dat",
+"C4_ST_013.dat"
+]
+},
+{
+"character": 13,
+"portrait": 117,
+"sprite": 28,
+"uses": 5,
+"donors": [
+"C4_ST_036.dat",
+"C4_ST_345.dat",
+"EP_ST_010.dat"
+]
+},
+{
+"character": 15,
+"portrait": 7,
+"sprite": 5,
+"uses": 3,
+"donors": [
+"C3a_ST_210.dat",
+"C3b_ST_300.dat",
+"C3c_ST_270.dat"
+]
+},
+{
+"character": 16,
+"portrait": 473,
+"sprite": 23,
+"uses": 2,
+"donors": [
+"C1_ST_100.dat",
+"EP_ST_340.dat"
+]
+},
+{
+"character": 17,
+"portrait": 225,
+"sprite": 69,
+"uses": 9,
+"donors": [
+"C2a_ST_080.dat",
+"C2a_ST_090.dat",
+"C2a_ST_130.dat"
+]
+},
+{
+"character": 18,
+"portrait": 77,
+"sprite": 127,
+"uses": 6,
+"donors": [
+"C2a_ST_130.dat",
+"C2a_ST_160.dat",
+"C2a_ST_180.dat"
+]
+},
+{
+"character": 19,
+"portrait": 5,
+"sprite": 6,
+"uses": 1,
+"donors": [
+"EP_ST_240.dat"
+]
+},
+{
+"character": 20,
+"portrait": 311,
+"sprite": 62,
+"uses": 9,
+"donors": [
+"C3a_ST_420.dat",
+"C3a_ST_440.dat",
+"C3c_ST_360.dat"
+]
+},
+{
+"character": 20,
+"portrait": 312,
+"sprite": 62,
+"uses": 2,
+"donors": [
+"C4_ST_176.dat",
+"C4_ST_278.dat"
+]
+},
+{
+"character": 21,
+"portrait": 319,
+"sprite": 45,
+"uses": 3,
+"donors": [
+"C3c_ST_120.dat",
+"C3c_ST_190.dat",
+"EP_ST_260.dat"
+]
+},
+{
+"character": 22,
+"portrait": 467,
+"sprite": 13,
+"uses": 2,
+"donors": [
+"C4_ST_322.dat",
+"EP_ST_260.dat"
+]
+},
+{
+"character": 23,
+"portrait": 699,
+"sprite": 16,
+"uses": 2,
+"donors": [
+"C2b_ST_150.dat",
+"EP_ST_310.dat"
+]
+},
+{
+"character": 24,
+"portrait": 114,
+"sprite": 115,
+"uses": 3,
+"donors": [
+"C3a_ST_120.dat",
+"EP_ST_280.dat"
+]
+},
+{
+"character": 25,
+"portrait": 465,
+"sprite": 95,
+"uses": 4,
+"donors": [
+"C3a_ST_120.dat",
+"C4_ST_288.dat",
+"EP_ST_280.dat"
+]
+},
+{
+"character": 28,
+"portrait": 694,
+"sprite": 131,
+"uses": 8,
+"donors": [
+"DLC_ST_010.dat",
+"DLC_ST_025.dat",
+"DLC_ST_030.dat"
+]
+},
+{
+"character": 29,
+"portrait": 107,
+"sprite": 25,
+"uses": 2,
+"donors": [
+"C4_ST_294.dat",
+"EP_ST_400.dat"
+]
+},
+{
+"character": 30,
+"portrait": 469,
+"sprite": 97,
+"uses": 2,
+"donors": [
+"EP_ST_420.dat",
+"EP_ST_440.dat"
+]
+},
+{
+"character": 31,
+"portrait": 383,
+"sprite": 77,
+"uses": 1,
+"donors": [
+"C4_ST_162.dat"
+]
+},
+{
+"character": 32,
+"portrait": 362,
+"sprite": 74,
+"uses": 31,
+"donors": [
+"C1_ST_100.dat",
+"C1_ST_110.dat",
+"C1_ST_140.dat"
+]
+},
+{
+"character": 33,
+"portrait": 486,
+"sprite": 100,
+"uses": 11,
+"donors": [
+"C1_ST_070.dat",
+"C1_ST_180.dat",
+"C1_ST_190.dat"
+]
+},
+{
+"character": 34,
+"portrait": 28,
+"sprite": 8,
+"uses": 8,
+"donors": [
+"C4_ST_182.dat",
+"C4_ST_184.dat",
+"C4_ST_186.dat"
+]
+},
+{
+"character": 41,
+"portrait": 634,
+"sprite": 119,
+"uses": 9,
+"donors": [
+"C2b_ST_197.dat",
+"C2b_ST_260.dat",
+"C3b_ST_010.dat"
+]
+},
+{
+"character": 42,
+"portrait": 322,
+"sprite": 65,
+"uses": 9,
+"donors": [
+"C3a_ST_360.dat",
+"C3b_ST_430.dat",
+"C3c_ST_410.dat"
+]
+},
+{
+"character": 43,
+"portrait": 684,
+"sprite": 58,
+"uses": 1,
+"donors": [
+"C3a_ST_110.dat"
+]
+},
+{
+"character": 44,
+"portrait": 512,
+"sprite": 107,
+"uses": 1,
+"donors": [
+"C4_ST_152.dat"
+]
+},
+{
+"character": 45,
+"portrait": 362,
+"sprite": 74,
+"uses": 2,
+"donors": [
+"C2b_ST_260.dat",
+"C3b_ST_250.dat"
+]
+},
+{
+"character": 47,
+"portrait": 5,
+"sprite": 6,
+"uses": 1,
+"donors": [
+"C2b_ST_260.dat"
+]
+},
+{
+"character": 49,
+"portrait": 699,
+"sprite": 16,
+"uses": 2,
+"donors": [
+"C2a_ST_227.dat",
+"C2a_ST_260.dat"
+]
+},
+{
+"character": 51,
+"portrait": 360,
+"sprite": 72,
+"uses": 18,
+"donors": [
+"C1_ST_160.dat",
+"C3a_ST_010.dat",
+"C3a_ST_210.dat"
+]
+},
+{
+"character": 51,
+"portrait": 360,
+"sprite": 73,
+"uses": 1,
+"donors": [
+"EP_ST_670.dat"
+]
+},
+{
+"character": 52,
+"portrait": 31,
+"sprite": 10,
+"uses": 15,
+"donors": [
+"C1_ST_150.dat",
+"C1_ST_160.dat",
+"C3a_ST_010.dat"
+]
+},
+{
+"character": 52,
+"portrait": 31,
+"sprite": 11,
+"uses": 1,
+"donors": [
+"EP_ST_670.dat"
+]
+},
+{
+"character": 53,
+"portrait": 638,
+"sprite": 121,
+"uses": 11,
+"donors": [
+"C3a_ST_210.dat",
+"C3b_ST_150.dat",
+"C3b_ST_300.dat"
+]
+},
+{
+"character": 53,
+"portrait": 638,
+"sprite": 122,
+"uses": 1,
+"donors": [
+"EP_ST_670.dat"
+]
+},
+{
+"character": 54,
+"portrait": 32,
+"sprite": 12,
+"uses": 10,
+"donors": [
+"C2a_ST_226.dat",
+"C2b_ST_196.dat",
+"C3a_ST_010.dat"
+]
+},
+{
+"character": 55,
+"portrait": 398,
+"sprite": 81,
+"uses": 14,
+"donors": [
+"C2a_ST_225.dat",
+"C2a_ST_227.dat",
+"C2b_ST_195.dat"
+]
+},
+{
+"character": 56,
+"portrait": 468,
+"sprite": 96,
+"uses": 7,
+"donors": [
+"C3a_ST_010.dat",
+"C3b_ST_010.dat",
+"C3b_ST_330.dat"
+]
+},
+{
+"character": 57,
+"portrait": 469,
+"sprite": 97,
+"uses": 19,
+"donors": [
+"C3a_ST_010.dat",
+"C3a_ST_050.dat",
+"C3a_ST_270.dat"
+]
+},
+{
+"character": 58,
+"portrait": 7,
+"sprite": 5,
+"uses": 4,
+"donors": [
+"C4_ST_080.dat",
+"C4_ST_084.dat",
+"C4_ST_086.dat"
+]
+},
+{
+"character": 59,
+"portrait": 153,
+"sprite": 34,
+"uses": 2,
+"donors": [
+"C4_ST_026.dat",
+"C4_ST_144.dat"
+]
+},
+{
+"character": 60,
+"portrait": 76,
+"sprite": 20,
+"uses": 7,
+"donors": [
+"C3b_ST_150.dat",
+"C3c_ST_340.dat",
+"C4_ST_015.dat"
+]
+},
+{
+"character": 61,
+"portrait": 442,
+"sprite": 91,
+"uses": 3,
+"donors": [
+"C2a_ST_290.dat",
+"C2b_ST_290.dat",
+"C3b_ST_190.dat"
+]
+},
+{
+"character": 62,
+"portrait": 443,
+"sprite": 76,
+"uses": 2,
+"donors": [
+"C4_ST_302.dat",
+"C4_ST_304.dat"
+]
+},
+{
+"character": 63,
+"portrait": 698,
+"sprite": 132,
+"uses": 2,
+"donors": [
+"C3b_ST_190.dat",
+"C3c_ST_210.dat"
+]
+},
+{
+"character": 66,
+"portrait": 488,
+"sprite": 101,
+"uses": 1,
+"donors": [
+"DLC_ST_055.dat"
+]
+},
+{
+"character": 67,
+"portrait": 107,
+"sprite": 25,
+"uses": 5,
+"donors": [
+"C3a_ST_130.dat",
+"C3b_ST_110.dat",
+"C3b_ST_120.dat"
+]
+},
+{
+"character": 75,
+"portrait": 628,
+"sprite": 47,
+"uses": 1,
+"donors": [
+"C4_ST_318.dat"
+]
+},
+{
+"character": 80,
+"portrait": 95,
+"sprite": 23,
+"uses": 1,
+"donors": [
+"C4_ST_158.dat"
+]
+},
+{
+"character": 81,
+"portrait": 273,
+"sprite": 57,
+"uses": 3,
+"donors": [
+"EP_ST_620.dat"
+]
+},
+{
+"character": 90,
+"portrait": 227,
+"sprite": 74,
+"uses": 1,
+"donors": [
+"C3c_ST_160.dat"
+]
+},
+{
+"character": 98,
+"portrait": 124,
+"sprite": 74,
+"uses": 1,
+"donors": [
+"C3c_ST_100.dat"
+]
+},
+{
+"character": 114,
+"portrait": 53,
+"sprite": 110,
+"uses": 1,
+"donors": [
+"C4_ST_308.dat"
+]
+},
+{
+"character": 130,
+"portrait": 329,
+"sprite": 68,
+"uses": 1,
+"donors": [
+"C3c_ST_160.dat"
+]
+},
+{
+"character": 137,
+"portrait": 608,
+"sprite": 116,
+"uses": 1,
+"donors": [
+"C3a_ST_100.dat"
+]
+},
+{
+"character": 144,
+"portrait": 411,
+"sprite": 88,
+"uses": 1,
+"donors": [
+"C4_ST_322.dat"
+]
+},
+{
+"character": 152,
+"portrait": 394,
+"sprite": 8,
+"uses": 1,
+"donors": [
+"C4_ST_198.dat"
+]
+},
+{
+"character": 183,
+"portrait": 516,
+"sprite": 109,
+"uses": 2,
+"donors": [
+"C4_ST_314.dat",
+"C4_ST_316.dat"
+]
+},
+{
+"character": 187,
+"portrait": 516,
+"sprite": 109,
+"uses": 1,
+"donors": [
+"C4_ST_316.dat"
+]
+},
+{
+"character": 191,
+"portrait": 228,
+"sprite": 49,
+"uses": 3,
+"donors": [
+"C4_ST_198.dat",
+"C4_ST_201.dat",
+"C4_ST_316.dat"
+]
+},
+{
+"character": 195,
+"portrait": 228,
+"sprite": 49,
+"uses": 2,
+"donors": [
+"C4_ST_314.dat",
+"C4_ST_316.dat"
+]
+},
+{
+"character": 504,
+"portrait": 695,
+"sprite": 131,
+"uses": 2,
+"donors": [
+"DLC_ST_036.dat",
+"DLC_ST_037.dat"
+]
+},
+{
+"character": 521,
+"portrait": 2,
+"sprite": 2,
+"uses": 12,
+"donors": [
+"C3b_ST_200.dat",
+"C3b_ST_310.dat",
+"C3b_ST_440.dat"
+]
+},
+{
+"character": 522,
+"portrait": 1,
+"sprite": 1,
+"uses": 15,
+"donors": [
+"C3b_ST_030.dat",
+"C3b_ST_200.dat",
+"C3b_ST_310.dat"
+]
+},
+{
+"character": 523,
+"portrait": 4,
+"sprite": 4,
+"uses": 13,
+"donors": [
+"C3b_ST_200.dat",
+"C3b_ST_260.dat",
+"C3b_ST_310.dat"
+]
+},
+{
+"character": 524,
+"portrait": 3,
+"sprite": 3,
+"uses": 13,
+"donors": [
+"C3b_ST_310.dat",
+"C3b_ST_440.dat",
+"C4_ST_090.dat"
+]
+},
+{
+"character": 525,
+"portrait": 693,
+"sprite": 130,
+"uses": 15,
+"donors": [
+"C2a_ST_226.dat",
+"C2b_ST_196.dat",
+"C3b_ST_200.dat"
+]
+},
+{
+"character": 526,
+"portrait": 692,
+"sprite": 129,
+"uses": 16,
+"donors": [
+"C2a_ST_226.dat",
+"C2b_ST_196.dat",
+"C3b_ST_200.dat"
+]
+},
+{
+"character": 574,
+"portrait": 30,
+"sprite": 9,
+"uses": 3,
+"donors": [
+"C2a_ST_210.dat",
+"C3c_ST_160.dat",
+"C3c_ST_190.dat"
+]
+},
+{
+"character": 575,
+"portrait": 471,
+"sprite": 98,
+"uses": 9,
+"donors": [
+"C3a_ST_050.dat",
+"C3b_ST_370.dat",
+"C3c_ST_280.dat"
+]
+},
+{
+"character": 576,
+"portrait": 397,
+"sprite": 80,
+"uses": 2,
+"donors": [
+"C4_ST_014.dat",
+"C4_ST_015.dat"
+]
+},
+{
+"character": 578,
+"portrait": 400,
+"sprite": 86,
+"uses": 18,
+"donors": [
+"C4_ST_022.dat",
+"C4_ST_024.dat",
+"C4_ST_030.dat"
+]
+},
+{
+"character": 579,
+"portrait": 629,
+"sprite": 118,
+"uses": 1,
+"donors": [
+"C4_ST_014.dat"
+]
+},
+{
+"character": 581,
+"portrait": 326,
+"sprite": 67,
+"uses": 8,
+"donors": [
+"C4_ST_094.dat",
+"C4_ST_100.dat",
+"DLC_ST_060.dat"
+]
+},
+{
+"character": 582,
+"portrait": 490,
+"sprite": 103,
+"uses": 20,
+"donors": [
+"C1_ST_060.dat",
+"C1_ST_110.dat",
+"C1_ST_180.dat"
+]
+},
+{
+"character": 585,
+"portrait": 123,
+"sprite": 30,
+"uses": 75,
+"donors": [
+"C4_ST_002.dat",
+"C4_ST_008.dat",
+"C4_ST_012.dat"
+]
+},
+{
+"character": 585,
+"portrait": 119,
+"sprite": 29,
+"uses": 3,
+"donors": [
+"DLC_ST_085.dat",
+"DLC_ST_111.dat",
+"EP_ST_713.dat"
+]
+},
+{
+"character": 587,
+"portrait": 323,
+"sprite": 66,
+"uses": 7,
+"donors": [
+"C4_ST_032.dat",
+"C4_ST_034.dat",
+"C4_ST_090.dat"
+]
+},
+{
+"character": 587,
+"portrait": 320,
+"sprite": 64,
+"uses": 3,
+"donors": [
+"DLC_ST_085.dat",
+"DLC_ST_111.dat",
+"EP_ST_713.dat"
+]
+},
+{
+"character": 588,
+"portrait": 239,
+"sprite": 51,
+"uses": 3,
+"donors": [
+"C4_ST_182.dat",
+"C4_ST_184.dat",
+"C4_ST_192.dat"
+]
+},
+{
+"character": 589,
+"portrait": 75,
+"sprite": 17,
+"uses": 2,
+"donors": [
+"C4_ST_180.dat",
+"C4_ST_182.dat"
+]
+},
+{
+"character": 590,
+"portrait": 75,
+"sprite": 18,
+"uses": 3,
+"donors": [
+"C4_ST_180.dat",
+"C4_ST_182.dat",
+"DLC_ST_090.dat"
+]
+},
+{
+"character": 591,
+"portrait": 75,
+"sprite": 19,
+"uses": 2,
+"donors": [
+"C4_ST_180.dat",
+"C4_ST_182.dat"
+]
+},
+{
+"character": 592,
+"portrait": 74,
+"sprite": 102,
+"uses": 3,
+"donors": [
+"DLC_ST_045.dat",
+"DLC_ST_050.dat",
+"DLC_ST_056.dat"
+]
+},
+{
+"character": 593,
+"portrait": 117,
+"sprite": 28,
+"uses": 1,
+"donors": [
+"C4_ST_346.dat"
+]
+},
+{
+"character": 594,
+"portrait": 117,
+"sprite": 28,
+"uses": 1,
+"donors": [
+"C4_ST_346.dat"
+]
+},
+{
+"character": 611,
+"portrait": 650,
+"sprite": 125,
+"uses": 21,
+"donors": [
+"C2b_ST_090.dat",
+"C2b_ST_260.dat",
+"C3a_ST_020.dat"
+]
+},
+{
+"character": 612,
+"portrait": 650,
+"sprite": 125,
+"uses": 2,
+"donors": [
+"EP_ST_600.dat",
+"EP_ST_610.dat"
+]
+},
+{
+"character": 619,
+"portrait": 651,
+"sprite": 125,
+"uses": 5,
+"donors": [
+"C2a_ST_240.dat",
+"C2a_ST_260.dat",
+"C2b_ST_210.dat"
+]
+},
+{
+"character": 620,
+"portrait": 651,
+"sprite": 125,
+"uses": 1,
+"donors": [
+"C2b_ST_210.dat"
+]
+},
+{
+"character": 627,
+"portrait": 651,
+"sprite": 125,
+"uses": 19,
+"donors": [
+"C1_ST_150.dat",
+"C3a_ST_370.dat",
+"C3a_ST_380.dat"
+]
+},
+{
+"character": 628,
+"portrait": 651,
+"sprite": 125,
+"uses": 2,
+"donors": [
+"C3b_ST_440.dat",
+"C4_ST_322.dat"
+]
+},
+{
+"character": 629,
+"portrait": 651,
+"sprite": 125,
+"uses": 1,
+"donors": [
+"C3b_ST_440.dat"
+]
+},
+{
+"character": 643,
+"portrait": 654,
+"sprite": 125,
+"uses": 2,
+"donors": [
+"C2a_ST_180.dat",
+"C2a_ST_190.dat"
+]
+},
+{
+"character": 647,
+"portrait": 644,
+"sprite": 124,
+"uses": 1,
+"donors": [
+"C2a_ST_180.dat"
+]
+},
+{
+"character": 675,
+"portrait": 337,
+"sprite": 69,
+"uses": 56,
+"donors": [
+"C2b_ST_180.dat",
+"C3a_ST_020.dat",
+"C3a_ST_070.dat"
+]
+},
+{
+"character": 676,
+"portrait": 337,
+"sprite": 69,
+"uses": 20,
+"donors": [
+"C2b_ST_180.dat",
+"DLC_ST_040.dat",
+"DLC_ST_042.dat"
+]
+},
+{
+"character": 677,
+"portrait": 337,
+"sprite": 69,
+"uses": 7,
+"donors": [
+"C4_ST_058.dat",
+"DLC_ST_040.dat",
+"DLC_ST_042.dat"
+]
+},
+{
+"character": 678,
+"portrait": 337,
+"sprite": 69,
+"uses": 6,
+"donors": [
+"DLC_ST_040.dat",
+"DLC_ST_042.dat",
+"DLC_ST_057.dat"
+]
+},
+{
+"character": 691,
+"portrait": 338,
+"sprite": 69,
+"uses": 19,
+"donors": [
+"C3b_ST_150.dat",
+"C3b_ST_310.dat",
+"C3b_ST_320.dat"
+]
+},
+{
+"character": 707,
+"portrait": 341,
+"sprite": 69,
+"uses": 2,
+"donors": [
+"C2a_ST_190.dat",
+"C3b_ST_220.dat"
+]
+},
+{
+"character": 723,
+"portrait": 343,
+"sprite": 69,
+"uses": 2,
+"donors": [
+"C4_ST_008.dat",
+"C4_ST_024.dat"
+]
+},
+{
+"character": 739,
+"portrait": 670,
+"sprite": 127,
+"uses": 13,
+"donors": [
+"C3a_ST_020.dat",
+"C3a_ST_070.dat",
+"C3a_ST_320.dat"
+]
+},
+{
+"character": 741,
+"portrait": 660,
+"sprite": 126,
+"uses": 3,
+"donors": [
+"C3a_ST_320.dat",
+"EP_ST_010.dat",
+"EP_ST_050.dat"
+]
+},
+{
+"character": 753,
+"portrait": 663,
+"sprite": 126,
+"uses": 1,
+"donors": [
+"C4_ST_310.dat"
+]
+},
+{
+"character": 755,
+"portrait": 674,
+"sprite": 127,
+"uses": 1,
+"donors": [
+"C3b_ST_220.dat"
+]
+},
+{
+"character": 757,
+"portrait": 664,
+"sprite": 126,
+"uses": 1,
+"donors": [
+"C3b_ST_220.dat"
+]
+},
+{
+"character": 769,
+"portrait": 692,
+"sprite": 126,
+"uses": 1,
+"donors": [
+"C4_ST_300.dat"
+]
+},
+{
+"character": 771,
+"portrait": 18,
+"sprite": 7,
+"uses": 1,
+"donors": [
+"EP_ST_610.dat"
+]
+},
+{
+"character": 773,
+"portrait": 8,
+"sprite": 6,
+"uses": 2,
+"donors": [
+"C3a_ST_320.dat",
+"EP_ST_610.dat"
+]
+},
+{
+"character": 781,
+"portrait": 661,
+"sprite": 6,
+"uses": 9,
+"donors": [
+"C3a_ST_370.dat",
+"C3a_ST_380.dat",
+"C3b_ST_450.dat"
+]
+},
+{
+"character": 782,
+"portrait": 661,
+"sprite": 6,
+"uses": 3,
+"donors": [
+"C3a_ST_370.dat",
+"C3b_ST_450.dat",
+"C3c_ST_420.dat"
+]
+},
+{
+"character": 789,
+"portrait": 12,
+"sprite": 6,
+"uses": 2,
+"donors": [
+"C2a_ST_180.dat",
+"C2a_ST_190.dat"
+]
+},
+{
+"character": 803,
+"portrait": 43,
+"sprite": 14,
+"uses": 3,
+"donors": [
+"EP_ST_170.dat",
+"EP_ST_190.dat",
+"EP_ST_210.dat"
+]
+},
+{
+"character": 819,
+"portrait": 64,
+"sprite": 16,
+"uses": 5,
+"donors": [
+"EP_ST_170.dat",
+"EP_ST_190.dat",
+"EP_ST_210.dat"
+]
+},
+{
+"character": 823,
+"portrait": 65,
+"sprite": 16,
+"uses": 3,
+"donors": [
+"C3a_ST_440.dat"
+]
+},
+{
+"character": 827,
+"portrait": 68,
+"sprite": 16,
+"uses": 1,
+"donors": [
+"C2a_ST_180.dat"
+]
+},
+{
+"character": 829,
+"portrait": 69,
+"sprite": 16,
+"uses": 4,
+"donors": [
+"C4_ST_188.dat",
+"C4_ST_284.dat"
+]
+},
+{
+"character": 831,
+"portrait": 70,
+"sprite": 16,
+"uses": 1,
+"donors": [
+"C4_ST_008.dat"
+]
+},
+{
+"character": 835,
+"portrait": 90,
+"sprite": 23,
+"uses": 3,
+"donors": [
+"C3c_ST_030.dat",
+"EP_ST_490.dat",
+"EP_ST_590.dat"
+]
+},
+{
+"character": 836,
+"portrait": 80,
+"sprite": 22,
+"uses": 4,
+"donors": [
+"C3a_ST_170.dat",
+"C3c_ST_030.dat",
+"EP_ST_690.dat"
+]
+},
+{
+"character": 839,
+"portrait": 91,
+"sprite": 23,
+"uses": 1,
+"donors": [
+"C3b_ST_440.dat"
+]
+},
+{
+"character": 847,
+"portrait": 96,
+"sprite": 23,
+"uses": 1,
+"donors": [
+"C4_ST_012.dat"
+]
+},
+{
+"character": 848,
+"portrait": 86,
+"sprite": 22,
+"uses": 4,
+"donors": [
+"C4_ST_012.dat"
+]
+},
+{
+"character": 868,
+"portrait": 145,
+"sprite": 33,
+"uses": 4,
+"donors": [
+"DLC_ST_061.dat"
+]
+},
+{
+"character": 869,
+"portrait": 145,
+"sprite": 33,
+"uses": 80,
+"donors": [
+"C1_ST_150.dat",
+"C1_ST_160.dat",
+"C2a_ST_225.dat"
+]
+},
+{
+"character": 875,
+"portrait": 204,
+"sprite": 45,
+"uses": 8,
+"donors": [
+"EP_ST_010.dat",
+"EP_ST_050.dat",
+"EP_ST_690.dat"
+]
+},
+{
+"character": 936,
+"portrait": 389,
+"sprite": 78,
+"uses": 4,
+"donors": [
+"C4_ST_196.dat"
+]
+},
+{
+"character": 955,
+"portrait": 501,
+"sprite": 105,
+"uses": 1,
+"donors": [
+"C4_ST_197.dat"
+]
+},
+{
+"character": 965,
+"portrait": 506,
+"sprite": 105,
+"uses": 1,
+"donors": [
+"C4_ST_192.dat"
+]
+},
+{
+"character": 971,
+"portrait": 596,
+"sprite": 115,
+"uses": 49,
+"donors": [
+"C3a_ST_390.dat",
+"C3b_ST_150.dat",
+"C3b_ST_470.dat"
+]
+},
+{
+"character": 976,
+"portrait": 608,
+"sprite": 116,
+"uses": 14,
+"donors": [
+"C3a_ST_320.dat",
+"C3b_ST_350.dat",
+"EP_ST_010.dat"
+]
+},
+{
+"character": 980,
+"portrait": 609,
+"sprite": 116,
+"uses": 2,
+"donors": [
+"C4_ST_088.dat"
+]
+},
+{
+"character": 991,
+"portrait": 431,
+"sprite": 90,
+"uses": 6,
+"donors": [
+"C4_ST_002.dat",
+"C4_ST_030.dat",
+"C4_ST_090.dat"
+]
+},
+{
+"character": 995,
+"portrait": 432,
+"sprite": 90,
+"uses": 3,
+"donors": [
+"C3a_ST_440.dat",
+"C3b_ST_210.dat"
+]
+},
+{
+"character": 1007,
+"portrait": 652,
+"sprite": 125,
+"uses": 14,
+"donors": [
+"C1_ST_120.dat",
+"C2b_ST_010.dat",
+"C2b_ST_020.dat"
+]
+},
+{
+"character": 1008,
+"portrait": 652,
+"sprite": 125,
+"uses": 2,
+"donors": [
+"C2b_ST_010.dat",
+"C3c_ST_150.dat"
+]
+},
+{
+"character": 1011,
+"portrait": 339,
+"sprite": 69,
+"uses": 15,
+"donors": [
+"C1_ST_240.dat",
+"C1_ST_260.dat",
+"C3a_ST_230.dat"
+]
+},
+{
+"character": 1012,
+"portrait": 339,
+"sprite": 69,
+"uses": 3,
+"donors": [
+"C3c_ST_150.dat",
+"C3c_ST_160.dat",
+"C3c_ST_190.dat"
+]
+},
+{
+"character": 1013,
+"portrait": 329,
+"sprite": 68,
+"uses": 1,
+"donors": [
+"C3c_ST_100.dat"
+]
+},
+{
+"character": 1015,
+"portrait": 672,
+"sprite": 127,
+"uses": 2,
+"donors": [
+"C1_ST_240.dat",
+"C1_ST_260.dat"
+]
+},
+{
+"character": 1017,
+"portrait": 662,
+"sprite": 126,
+"uses": 2,
+"donors": [
+"C1_ST_240.dat",
+"C1_ST_260.dat"
+]
+},
+{
+"character": 1021,
+"portrait": 10,
+"sprite": 6,
+"uses": 9,
+"donors": [
+"C1_ST_240.dat",
+"C1_ST_260.dat",
+"C2b_ST_010.dat"
+]
+},
+{
+"character": 1022,
+"portrait": 10,
+"sprite": 6,
+"uses": 1,
+"donors": [
+"C3c_ST_150.dat"
+]
+},
+{
+"character": 1025,
+"portrait": 66,
+"sprite": 16,
+"uses": 4,
+"donors": [
+"C1_ST_240.dat",
+"C1_ST_260.dat"
+]
+},
+{
+"character": 1028,
+"portrait": 82,
+"sprite": 22,
+"uses": 2,
+"donors": [
+"C1_ST_240.dat",
+"C1_ST_260.dat"
+]
+},
+{
+"character": 1049,
+"portrait": 526,
+"sprite": 110,
+"uses": 4,
+"donors": [
+"EP_ST_010.dat",
+"EP_ST_050.dat",
+"EP_ST_690.dat"
+]
+},
+{
+"character": 1052,
+"portrait": 537,
+"sprite": 111,
+"uses": 2,
+"donors": [
+"C4_ST_088.dat"
+]
+},
+{
+"character": 1053,
+"portrait": 527,
+"sprite": 110,
+"uses": 4,
+"donors": [
+"C4_ST_080.dat",
+"C4_ST_086.dat"
+]
+},
+{
+"character": 1054,
+"portrait": 539,
+"sprite": 111,
+"uses": 1,
+"donors": [
+"C4_ST_310.dat"
+]
+}
+]
+}

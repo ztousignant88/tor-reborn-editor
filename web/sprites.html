@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Sprite Lab</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { margin: 0; background: #14171c; color: #e9e6df; font: 13px system-ui, sans-serif; }
+    header { display: flex; gap: 10px; align-items: center; padding: 8px 12px; border-bottom: 1px solid #2e3440; }
+    input, button { font: inherit; color: inherit; background: #1b1f26; border: 1px solid #3a4252; border-radius: 6px; padding: 4px 7px; }
+    #out { padding: 12px; display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+    figure { margin: 0; } figcaption { color: #9aa1ad; font-size: 12px; }
+    canvas { background: repeating-conic-gradient(#2a2f3a 0 25%, #1f232b 0 50%) 0 0 / 16px 16px; image-rendering: pixelated; }
+  </style>
+</head>
+<body>
+  <header><b>Sprite Lab</b> <input id="path" value="object/Archer_m00.dat" size="34"> <button id="go">Show</button> <span id="info"></span></header>
+  <div id="out"></div>
+  <script type="module">
+    import { source } from './js/game/source.js';
+    import { decrypt } from './js/lib/crypt.js';
+    import { unzipSingle } from './js/lib/zip.js';
+    import { parsePakd, view } from './js/lib/pakd.js';
+    import { isAshg, decompressAshg } from './js/lib/ashg.js';
+    const $ = (s) => document.querySelector(s);
+
+    // Decode any texture to RGBA via WebGL (BC7 decoded by the GPU).
+    const glc = document.createElement('canvas');
+    const gl = glc.getContext('webgl2', { preserveDrawingBuffer: true });
+    const bptc = gl.getExtension('EXT_texture_compression_bptc');
+    const prog = (() => {
+      const vs = `#version 300 es
+        out vec2 uv; void main(){ vec2 p = vec2((gl_VertexID<<1)&2, gl_VertexID&2); uv = p; gl_Position = vec4(p*2.0-1.0,0,1); }`;
+      const fs = `#version 300 es
+        precision mediump float; in vec2 uv; uniform sampler2D t; out vec4 o; void main(){ o = texture(t, uv); }`;
+      const p = gl.createProgram();
+      for (const [type, src] of [[gl.VERTEX_SHADER, vs], [gl.FRAGMENT_SHADER, fs]]) { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); gl.attachShader(p, s); }
+      gl.linkProgram(p); return p;
+    })();
+    function toRGBA(t) {
+      if (t.format === 0) return t.data;
+      const src = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, src);
+      gl.compressedTexImage2D(gl.TEXTURE_2D, 0, bptc.COMPRESSED_RGBA_BPTC_UNORM_EXT, t.width, t.height, 0, t.data);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      const dst = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, dst);
+      gl.texStorage2D(gl.TEXTURE_2D, 1, gl.RGBA8, t.width, t.height);
+      const fb = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, dst, 0);
+      gl.viewport(0, 0, t.width, t.height);
+      gl.useProgram(prog); gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, src);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      const px = new Uint8Array(t.width * t.height * 4);
+      gl.readPixels(0, 0, t.width, t.height, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      return px;
+    }
+    function btx(d) {
+      const v = view(d);
+      const w = v.getUint16(8, true), h = v.getUint16(10, true), stride = v.getUint32(12, true), fmt = d[16];
+      const doff = v.getUint32(0x18, true), noff = v.getUint32(0x24, true);
+      let e = noff; while (d[e]) e++;
+      const rows = fmt >= 7 && fmt <= 13 ? Math.ceil(h / 4) : h;
+      return { name: new TextDecoder().decode(d.subarray(noff, e)), width: w, height: h, format: fmt, data: d.subarray(doff, doff + stride * rows) };
+    }
+    function show(t, note = '') {
+      const c = document.createElement('canvas'); c.width = t.width; c.height = t.height;
+      c.getContext('2d').putImageData(new ImageData(new Uint8ClampedArray(toRGBA(t)), t.width, t.height), 0, 0);
+      const f = document.createElement('figure'); f.append(c);
+      const cap = document.createElement('figcaption'); cap.textContent = `${t.name} ${t.width}×${t.height} fmt${t.format} ${note}`; f.append(cap);
+      $('#out').append(f);
+    }
+    function walk(d, depth = 0) {
+      if (isAshg(d)) return walk(decompressAshg(d), depth);
+      if (d[0] === 0x62 && d[1] === 0x74 && d[2] === 0x78 && d[3] === 0) return show(btx(d));
+      if (view(d).getUint32(0, true) === 0x646B6170) for (const e of parsePakd(d).entries) walk(e.data, depth + 1);
+    }
+    async function go() {
+      $('#out').innerHTML = '';
+      const { bytes } = await source.read($('#path').value);
+      const { data } = await unzipSingle(decrypt(bytes));
+      window.lastPack = data;
+      walk(data);
+      $('#info').textContent = `${data.length} bytes`;
+    }
+    $('#go').onclick = go;
+    go().catch((e) => { $('#info').textContent = e.message; console.error(e); });
+  </script>
+</body>
+</html>

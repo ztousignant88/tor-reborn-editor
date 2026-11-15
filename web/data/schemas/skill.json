@@ -1,0 +1,21 @@
+{
+  "key": "skill",
+  "title": "Skills",
+  "rowSize": 102,
+  "count": 800,
+  "groups": [
+    {
+      "label": "Linked effect",
+      "fields": [
+        {
+          "key": "linked_effect",
+          "label": "Effect",
+          "offset": 4,
+          "size": 2,
+          "type": "uint",
+          "ref": "effect"
+        }
+      ]
+    }
+  ]
+}

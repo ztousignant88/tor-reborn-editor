@@ -1,0 +1,145 @@
+{
+"note": "built by editor/tools/build_unit_copy_index.py",
+"files": {
+"1": [
+"C1_ST_010.dat",
+"C1_ST_030.dat",
+"C1_ST_070.dat",
+"C1_ST_100.dat",
+"C1_ST_110.dat",
+"C1_ST_180.dat"
+],
+"5": [
+"C1_ST_010.dat",
+"C1_ST_030.dat",
+"C4_ST_345.dat",
+"C4_ST_346.dat"
+],
+"6": [
+"C1_ST_080.dat"
+],
+"9": [
+"C1_ST_090.dat",
+"C1_ST_100.dat"
+],
+"15": [
+"C1_ST_130.dat"
+],
+"33": [
+"C2a_ST_050.dat",
+"C2a_ST_070.dat",
+"C2a_ST_090.dat",
+"C2a_ST_130.dat",
+"C2a_ST_160.dat",
+"C2a_ST_200.dat"
+],
+"43": [
+"C2a_ST_060.dat"
+],
+"49": [
+"C2a_ST_070.dat"
+],
+"58": [
+"C2a_ST_110.dat"
+],
+"61": [
+"C2a_ST_140.dat"
+],
+"64": [
+"C2a_ST_140.dat"
+],
+"67": [
+"C2a_ST_170.dat"
+],
+"106": [
+"C2b_ST_120.dat"
+],
+"128": [
+"C3a_ST_020.dat",
+"C3a_ST_040.dat"
+],
+"132": [
+"C3a_ST_050.dat"
+],
+"138": [
+"C3a_ST_110.dat"
+],
+"141": [
+"C3a_ST_120.dat",
+"C3a_ST_410.dat",
+"C3a_ST_420.dat",
+"C3a_ST_440.dat"
+],
+"199": [
+"C3b_ST_210.dat"
+],
+"202": [
+"C3b_ST_360.dat",
+"C3b_ST_380.dat"
+],
+"242": [
+"C3c_ST_120.dat",
+"C3c_ST_320.dat",
+"C3c_ST_360.dat",
+"C3c_ST_470.dat"
+],
+"276": [
+"C3c_ST_350.dat"
+],
+"288": [
+"C4_ST_018.dat",
+"C4_ST_056.dat",
+"C4_ST_152.dat",
+"C4_ST_158.dat",
+"C4_ST_162.dat",
+"C4_ST_164.dat",
+"C4_ST_166.dat",
+"C4_ST_196.dat",
+"C4_ST_280.dat",
+"C4_ST_294.dat",
+"C4_ST_298.dat",
+"C4_ST_326.dat",
+"C4_ST_346.dat"
+],
+"334": [
+"C4_ST_286.dat"
+],
+"340": [
+"C4_ST_292.dat"
+],
+"430": [
+"C3a_ST_410.dat"
+],
+"439": [
+"C4_ST_160.dat"
+],
+"463": [
+"C4_ST_190.dat"
+],
+"490": [
+"C4_ST_298.dat"
+],
+"526": [
+"C3c_ST_460.dat"
+],
+"547": [
+"C4_ST_196.dat"
+],
+"553": [
+"C4_ST_346.dat"
+],
+"613": [
+"DLC_ST_036.dat",
+"DLC_ST_037.dat",
+"DLC_ST_057.dat",
+"DLC_ST_058.dat",
+"DLC_ST_080.dat"
+],
+"632": [
+"DLC_ST_056.dat"
+],
+"638": [
+"DLC_ST_070.dat"
+]
+}
+}

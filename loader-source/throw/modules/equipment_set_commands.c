@@ -1,0 +1,21 @@
+/* The battle command picker has room for 300 IDs, but the stock collector
+ * only returns skills from the four ordinary slots. */
+static int eqs_active_skills(uint16_t *out,const unsigned char *unit){
+    typedef int (*Collect)(uint16_t *,const unsigned char *);
+    typedef uint16_t (*SetSkill)(const unsigned char *);
+    int count=((Collect)(mm_base+0x3bcab0))(out,unit);
+    const unsigned char *status=unit+0xbe;
+    if(status[1]<EQS_FIRST || status[1]>=EQS_LIMIT || count<0 || count>=300)return count;
+    uint16_t skill=((SetSkill)(mm_base+0x445140))(status);
+    const unsigned char *table;
+    memcpy(&table,mm_base+0xd78e38,sizeof(table));
+    if(!skill || !table)return count;
+    uint32_t rows,offset,stride;
+    memcpy(&rows,table+4,sizeof(rows));
+    memcpy(&offset,table+8,sizeof(offset));
+    memcpy(&stride,table+12,sizeof(stride));
+    if(skill>=rows || (stride!=102 && stride!=166) || table[offset+(size_t)skill*stride+2]!=2)return count;
+    for(int i=0;i<count;i++)if(out[i]==skill)return count;
+    out[count]=skill;
+    return count+1;
+}

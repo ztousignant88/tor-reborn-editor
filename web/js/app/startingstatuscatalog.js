@@ -1,0 +1,1218 @@
+export const startingStatusCatalog = [
+  {
+    "id": 4,
+    "name": "Asleep",
+    "help": "Unable to take action. Any damage will awaken the unit.",
+    "kind": "debuff",
+    "group": "Ailments",
+    "untimed": false,
+    "conflicts": [
+      11,
+      15
+    ]
+  },
+  {
+    "id": 5,
+    "name": "Charmed",
+    "help": "Turned traitor. Actions and movement cannot be controlled.",
+    "kind": "debuff",
+    "group": "Ailments",
+    "untimed": false,
+    "conflicts": [
+      11
+    ]
+  },
+  {
+    "id": 9,
+    "name": "Stunned",
+    "help": "Sometimes unable to take action.",
+    "kind": "debuff",
+    "group": "Ailments",
+    "untimed": false,
+    "conflicts": [
+      11
+    ]
+  },
+  {
+    "id": 10,
+    "name": "Silenced",
+    "help": "Unable to cast spells or recruit.",
+    "kind": "debuff",
+    "group": "Ailments",
+    "untimed": false,
+    "conflicts": [
+      11
+    ]
+  },
+  {
+    "id": 11,
+    "name": "Petrified",
+    "help": "Unable to move or take action.",
+    "kind": "debuff",
+    "group": "Ailments",
+    "untimed": false,
+    "conflicts": [
+      4,
+      5,
+      9,
+      10,
+      14,
+      15,
+      33,
+      34,
+      37,
+      38
+    ]
+  },
+  {
+    "id": 14,
+    "name": "Stopped",
+    "help": "RT (Recovery Time) is frozen. Will not have an attack turn until the condition is removed.",
+    "kind": "debuff",
+    "group": "Ailments",
+    "untimed": false,
+    "conflicts": [
+      11
+    ]
+  },
+  {
+    "id": 15,
+    "name": "Poisoned",
+    "help": "Takes poison damage at regular intervals.",
+    "kind": "debuff",
+    "group": "Ailments",
+    "untimed": false,
+    "conflicts": [
+      4,
+      11
+    ]
+  },
+  {
+    "id": 17,
+    "name": "Hobbled",
+    "help": "Movement range is reduced by 1.",
+    "kind": "debuff",
+    "group": "Ailments",
+    "untimed": false,
+    "conflicts": [
+      18
+    ]
+  },
+  {
+    "id": 18,
+    "name": "Leadened",
+    "help": "Movement type is changed to Slow and unit can only move up and down elevation differences of 1.",
+    "kind": "debuff",
+    "group": "Ailments",
+    "untimed": false,
+    "conflicts": [
+      17,
+      26,
+      27,
+      31,
+      32
+    ]
+  },
+  {
+    "id": 21,
+    "name": "Cursed",
+    "help": "MAX HP and MP reduced.",
+    "kind": "debuff",
+    "group": "Ailments",
+    "untimed": false,
+    "conflicts": []
+  },
+  {
+    "id": 22,
+    "name": "Frightened",
+    "help": "ATTACK and DEFENSE reduced.",
+    "kind": "debuff",
+    "group": "Ailments",
+    "untimed": false,
+    "conflicts": []
+  },
+  {
+    "id": 23,
+    "name": "Quickened",
+    "help": "RT (Recovery Time) hastened.",
+    "kind": "buff",
+    "group": "Recovery & protection",
+    "untimed": false,
+    "conflicts": [
+      24
+    ]
+  },
+  {
+    "id": 24,
+    "name": "Slowed",
+    "help": "RT (Recovery Time) slowed.",
+    "kind": "debuff",
+    "group": "Ailments",
+    "untimed": false,
+    "conflicts": [
+      23
+    ]
+  },
+  {
+    "id": 26,
+    "name": "Nimble",
+    "help": "Able to move without penalty over elevation changes.",
+    "kind": "buff",
+    "group": "Movement",
+    "untimed": false,
+    "conflicts": [
+      18,
+      27,
+      29,
+      30,
+      31,
+      32
+    ]
+  },
+  {
+    "id": 27,
+    "name": "Waterwalk",
+    "help": "Able to walk on water.",
+    "kind": "buff",
+    "group": "Movement",
+    "untimed": false,
+    "conflicts": [
+      18,
+      26,
+      29,
+      30,
+      31,
+      32
+    ]
+  },
+  {
+    "id": 29,
+    "name": "Lavawalk",
+    "help": "Able to walk on lava.",
+    "kind": "buff",
+    "group": "Movement",
+    "untimed": false,
+    "conflicts": [
+      26,
+      27,
+      30,
+      31,
+      32
+    ]
+  },
+  {
+    "id": 30,
+    "name": "Blinkwalk",
+    "help": "Able to TELEPORT.",
+    "kind": "buff",
+    "group": "Movement",
+    "untimed": false,
+    "conflicts": [
+      26,
+      27,
+      29,
+      31,
+      32
+    ]
+  },
+  {
+    "id": 31,
+    "name": "Cloudwalk",
+    "help": "Able to FLOAT above the ground.",
+    "kind": "buff",
+    "group": "Movement",
+    "untimed": false,
+    "conflicts": [
+      18,
+      26,
+      27,
+      29,
+      30,
+      32
+    ]
+  },
+  {
+    "id": 32,
+    "name": "Windwalk",
+    "help": "Able to FLY.",
+    "kind": "buff",
+    "group": "Movement",
+    "untimed": false,
+    "conflicts": [
+      18,
+      26,
+      27,
+      29,
+      30,
+      31
+    ]
+  },
+  {
+    "id": 33,
+    "name": "Renewal",
+    "help": "Regains HP at regular intervals.",
+    "kind": "buff",
+    "group": "Recovery & protection",
+    "untimed": false,
+    "conflicts": [
+      11
+    ]
+  },
+  {
+    "id": 34,
+    "name": "Pain Aura",
+    "help": "DEFENSE is dramatically reduced. A small amount of damage taken is REFLECTED back at its source.",
+    "kind": "debuff",
+    "group": "Ailments",
+    "untimed": false,
+    "conflicts": [
+      11
+    ]
+  },
+  {
+    "id": 35,
+    "name": "Nullify",
+    "help": "Next incoming weapon attack, special skill, or item effect is RENDERED INEFFECTIVE.",
+    "kind": "buff",
+    "group": "Recovery & protection",
+    "untimed": true,
+    "conflicts": []
+  },
+  {
+    "id": 36,
+    "name": "Negate",
+    "help": "Next incoming spell is RENDERED INEFFECTIVE. Includes ninjutsu and war dances.",
+    "kind": "buff",
+    "group": "Recovery & protection",
+    "untimed": true,
+    "conflicts": []
+  },
+  {
+    "id": 37,
+    "name": "Sanctified",
+    "help": "UNDEAD may not approach within 1 tile.",
+    "kind": "buff",
+    "group": "Recovery & protection",
+    "untimed": false,
+    "conflicts": [
+      11,
+      38
+    ]
+  },
+  {
+    "id": 38,
+    "name": "Battering Ram",
+    "help": "Able to ignore RAMPART AURA when moving.",
+    "kind": "buff",
+    "group": "Recovery & protection",
+    "untimed": false,
+    "conflicts": [
+      11,
+      37
+    ]
+  },
+  {
+    "id": 39,
+    "name": "Strengthened",
+    "help": "PHYSICAL ATTACK strengthened.",
+    "kind": "buff",
+    "group": "Combat & magic",
+    "untimed": false,
+    "conflicts": [
+      40,
+      41,
+      42,
+      43,
+      44
+    ]
+  },
+  {
+    "id": 40,
+    "name": "Weakened",
+    "help": "PHYSICAL ATTACK weakened.",
+    "kind": "debuff",
+    "group": "Combat & magic",
+    "untimed": false,
+    "conflicts": [
+      39,
+      41,
+      42,
+      43,
+      44
+    ]
+  },
+  {
+    "id": 41,
+    "name": "Spellcraft",
+    "help": "OFFENSIVE MAGIC strengthened.",
+    "kind": "buff",
+    "group": "Combat & magic",
+    "untimed": false,
+    "conflicts": [
+      39,
+      40,
+      42,
+      43,
+      44
+    ]
+  },
+  {
+    "id": 42,
+    "name": "Spoilspell",
+    "help": "OFFENSIVE MAGIC weakened.",
+    "kind": "debuff",
+    "group": "Combat & magic",
+    "untimed": false,
+    "conflicts": [
+      39,
+      40,
+      41,
+      43,
+      44
+    ]
+  },
+  {
+    "id": 43,
+    "name": "Healcraft",
+    "help": "RESTORATIVE MAGIC strengthened.",
+    "kind": "buff",
+    "group": "Combat & magic",
+    "untimed": false,
+    "conflicts": [
+      39,
+      40,
+      41,
+      42,
+      44
+    ]
+  },
+  {
+    "id": 44,
+    "name": "Spoilheal",
+    "help": "RESTORATIVE MAGIC weakened.",
+    "kind": "debuff",
+    "group": "Combat & magic",
+    "untimed": false,
+    "conflicts": [
+      39,
+      40,
+      41,
+      42,
+      43
+    ]
+  },
+  {
+    "id": 45,
+    "name": "Fortified",
+    "help": "PHYSICAL DEFENSE strengthened.",
+    "kind": "buff",
+    "group": "Combat & magic",
+    "untimed": false,
+    "conflicts": [
+      46,
+      47,
+      48
+    ]
+  },
+  {
+    "id": 46,
+    "name": "Breached",
+    "help": "PHYSICAL DEFENSE weakened.",
+    "kind": "debuff",
+    "group": "Combat & magic",
+    "untimed": false,
+    "conflicts": [
+      45,
+      47,
+      48
+    ]
+  },
+  {
+    "id": 47,
+    "name": "Resilient",
+    "help": "MAGIC RESIST strengthened.",
+    "kind": "buff",
+    "group": "Combat & magic",
+    "untimed": false,
+    "conflicts": [
+      45,
+      46,
+      48
+    ]
+  },
+  {
+    "id": 48,
+    "name": "Enfeebled",
+    "help": "MAGIC RESIST weakened.",
+    "kind": "debuff",
+    "group": "Combat & magic",
+    "untimed": false,
+    "conflicts": [
+      45,
+      46,
+      47
+    ]
+  },
+  {
+    "id": 49,
+    "name": "Truestrike",
+    "help": "MELEE ACCURACY increased.",
+    "kind": "buff",
+    "group": "Combat & magic",
+    "untimed": false,
+    "conflicts": [
+      50,
+      51,
+      52,
+      53,
+      54
+    ]
+  },
+  {
+    "id": 50,
+    "name": "Falsestrike",
+    "help": "MELEE ACCURACY reduced.",
+    "kind": "debuff",
+    "group": "Combat & magic",
+    "untimed": false,
+    "conflicts": [
+      49,
+      51,
+      52,
+      53,
+      54
+    ]
+  },
+  {
+    "id": 51,
+    "name": "Trueflight",
+    "help": "RANGED ACCURACY increased.",
+    "kind": "buff",
+    "group": "Combat & magic",
+    "untimed": false,
+    "conflicts": [
+      49,
+      50,
+      52,
+      53,
+      54
+    ]
+  },
+  {
+    "id": 52,
+    "name": "Falseflight",
+    "help": "RANGED ACCURACY reduced.",
+    "kind": "debuff",
+    "group": "Combat & magic",
+    "untimed": false,
+    "conflicts": [
+      49,
+      50,
+      51,
+      53,
+      54
+    ]
+  },
+  {
+    "id": 53,
+    "name": "Spellstrike",
+    "help": "MAGIC ACCURACY increased.",
+    "kind": "buff",
+    "group": "Combat & magic",
+    "untimed": false,
+    "conflicts": [
+      49,
+      50,
+      51,
+      52,
+      54
+    ]
+  },
+  {
+    "id": 54,
+    "name": "Spellslip",
+    "help": "MAGIC ACCURACY reduced.",
+    "kind": "debuff",
+    "group": "Combat & magic",
+    "untimed": false,
+    "conflicts": [
+      49,
+      50,
+      51,
+      52,
+      53
+    ]
+  },
+  {
+    "id": 55,
+    "name": "Dodge",
+    "help": "MELEE AVOIDANCE increased.",
+    "kind": "buff",
+    "group": "Combat & magic",
+    "untimed": false,
+    "conflicts": [
+      56,
+      57,
+      58
+    ]
+  },
+  {
+    "id": 56,
+    "name": "Stagger",
+    "help": "MELEE AVOIDANCE reduced.",
+    "kind": "debuff",
+    "group": "Combat & magic",
+    "untimed": false,
+    "conflicts": [
+      55,
+      57,
+      58
+    ]
+  },
+  {
+    "id": 57,
+    "name": "Sidestep",
+    "help": "RANGED AVOIDANCE increased.",
+    "kind": "buff",
+    "group": "Combat & magic",
+    "untimed": false,
+    "conflicts": [
+      55,
+      56,
+      58
+    ]
+  },
+  {
+    "id": 58,
+    "name": "Misstep",
+    "help": "RANGED AVOIDANCE reduced.",
+    "kind": "debuff",
+    "group": "Combat & magic",
+    "untimed": false,
+    "conflicts": [
+      55,
+      56,
+      57
+    ]
+  },
+  {
+    "id": 59,
+    "name": "Air-touched",
+    "help": "AIR DAMAGE added to weapon attacks.",
+    "kind": "buff",
+    "group": "Weapon effects",
+    "untimed": true,
+    "conflicts": [
+      60,
+      61,
+      62,
+      63,
+      64,
+      65,
+      66,
+      67,
+      68,
+      69
+    ]
+  },
+  {
+    "id": 60,
+    "name": "Earth-touched",
+    "help": "EARTH DAMAGE added to weapon attacks.",
+    "kind": "buff",
+    "group": "Weapon effects",
+    "untimed": true,
+    "conflicts": [
+      59,
+      61,
+      62,
+      63,
+      64,
+      65,
+      66,
+      67,
+      68,
+      69
+    ]
+  },
+  {
+    "id": 61,
+    "name": "Lightning-touched",
+    "help": "LIGHTNING DAMAGE added to weapon attacks.",
+    "kind": "buff",
+    "group": "Weapon effects",
+    "untimed": true,
+    "conflicts": [
+      59,
+      60,
+      62,
+      63,
+      64,
+      65,
+      66,
+      67,
+      68,
+      69
+    ]
+  },
+  {
+    "id": 62,
+    "name": "Water-touched",
+    "help": "WATER DAMAGE added to weapon attacks.",
+    "kind": "buff",
+    "group": "Weapon effects",
+    "untimed": true,
+    "conflicts": [
+      59,
+      60,
+      61,
+      63,
+      64,
+      65,
+      66,
+      67,
+      68,
+      69
+    ]
+  },
+  {
+    "id": 63,
+    "name": "Fire-touched",
+    "help": "FIRE DAMAGE added to weapon attacks.",
+    "kind": "buff",
+    "group": "Weapon effects",
+    "untimed": true,
+    "conflicts": [
+      59,
+      60,
+      61,
+      62,
+      64,
+      65,
+      66,
+      67,
+      68,
+      69
+    ]
+  },
+  {
+    "id": 64,
+    "name": "Ice-touched",
+    "help": "ICE DAMAGE added to weapon attacks.",
+    "kind": "buff",
+    "group": "Weapon effects",
+    "untimed": true,
+    "conflicts": [
+      59,
+      60,
+      61,
+      62,
+      63,
+      65,
+      66,
+      67,
+      68,
+      69
+    ]
+  },
+  {
+    "id": 65,
+    "name": "Light-touched",
+    "help": "LIGHT DAMAGE added to weapon attacks.",
+    "kind": "buff",
+    "group": "Weapon effects",
+    "untimed": true,
+    "conflicts": [
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      66,
+      67,
+      68,
+      69
+    ]
+  },
+  {
+    "id": 66,
+    "name": "Dark-touched",
+    "help": "DARK DAMAGE added to weapon attacks.",
+    "kind": "buff",
+    "group": "Weapon effects",
+    "untimed": true,
+    "conflicts": [
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65,
+      67,
+      68,
+      69
+    ]
+  },
+  {
+    "id": 67,
+    "name": "Silence-bringer",
+    "help": "SILENCE added to weapon attacks.",
+    "kind": "buff",
+    "group": "Weapon effects",
+    "untimed": false,
+    "conflicts": [
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65,
+      66,
+      68,
+      69
+    ]
+  },
+  {
+    "id": 68,
+    "name": "Stun-bringer",
+    "help": "STUN added to weapon attacks.",
+    "kind": "buff",
+    "group": "Weapon effects",
+    "untimed": false,
+    "conflicts": [
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65,
+      66,
+      67,
+      69
+    ]
+  },
+  {
+    "id": 69,
+    "name": "Poison-bringer",
+    "help": "POISON added to weapon attacks.",
+    "kind": "buff",
+    "group": "Weapon effects",
+    "untimed": false,
+    "conflicts": [
+      59,
+      60,
+      61,
+      62,
+      63,
+      64,
+      65,
+      66,
+      67,
+      68
+    ]
+  },
+  {
+    "id": 70,
+    "name": "Air Attuned",
+    "help": "AIR RESISTANCE increased.",
+    "kind": "buff",
+    "group": "Elemental resistance",
+    "untimed": true,
+    "conflicts": [
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82,
+      83,
+      84,
+      85
+    ]
+  },
+  {
+    "id": 71,
+    "name": "Earth Attuned",
+    "help": "EARTH RESISTANCE increased.",
+    "kind": "buff",
+    "group": "Elemental resistance",
+    "untimed": true,
+    "conflicts": [
+      70,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82,
+      83,
+      84,
+      85
+    ]
+  },
+  {
+    "id": 72,
+    "name": "Lightning Attuned",
+    "help": "LIGHTNING RESISTANCE increased.",
+    "kind": "buff",
+    "group": "Elemental resistance",
+    "untimed": true,
+    "conflicts": [
+      70,
+      71,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82,
+      83,
+      84,
+      85
+    ]
+  },
+  {
+    "id": 73,
+    "name": "Water Attuned",
+    "help": "WATER RESISTANCE increased.",
+    "kind": "buff",
+    "group": "Elemental resistance",
+    "untimed": true,
+    "conflicts": [
+      70,
+      71,
+      72,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82,
+      83,
+      84,
+      85
+    ]
+  },
+  {
+    "id": 74,
+    "name": "Fire Attuned",
+    "help": "FIRE RESISTANCE increased.",
+    "kind": "buff",
+    "group": "Elemental resistance",
+    "untimed": true,
+    "conflicts": [
+      70,
+      71,
+      72,
+      73,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82,
+      83,
+      84,
+      85
+    ]
+  },
+  {
+    "id": 75,
+    "name": "Ice Attuned",
+    "help": "ICE RESISTANCE increased.",
+    "kind": "buff",
+    "group": "Elemental resistance",
+    "untimed": true,
+    "conflicts": [
+      70,
+      71,
+      72,
+      73,
+      74,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82,
+      83,
+      84,
+      85
+    ]
+  },
+  {
+    "id": 76,
+    "name": "Light Attuned",
+    "help": "LIGHT RESISTANCE increased.",
+    "kind": "buff",
+    "group": "Elemental resistance",
+    "untimed": true,
+    "conflicts": [
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82,
+      83,
+      84,
+      85
+    ]
+  },
+  {
+    "id": 77,
+    "name": "Dark Attuned",
+    "help": "DARK RESISTANCE increased.",
+    "kind": "buff",
+    "group": "Elemental resistance",
+    "untimed": true,
+    "conflicts": [
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      78,
+      79,
+      80,
+      81,
+      82,
+      83,
+      84,
+      85
+    ]
+  },
+  {
+    "id": 78,
+    "name": "Air Averse",
+    "help": "AIR RESISTANCE reduced.",
+    "kind": "debuff",
+    "group": "Elemental resistance",
+    "untimed": false,
+    "conflicts": [
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      79,
+      80,
+      81,
+      82,
+      83,
+      84,
+      85
+    ]
+  },
+  {
+    "id": 79,
+    "name": "Earth Averse",
+    "help": "EARTH RESISTANCE reduced.",
+    "kind": "debuff",
+    "group": "Elemental resistance",
+    "untimed": false,
+    "conflicts": [
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      80,
+      81,
+      82,
+      83,
+      84,
+      85
+    ]
+  },
+  {
+    "id": 80,
+    "name": "Lightning Averse",
+    "help": "LIGHTNING RESISTANCE reduced.",
+    "kind": "debuff",
+    "group": "Elemental resistance",
+    "untimed": false,
+    "conflicts": [
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      81,
+      82,
+      83,
+      84,
+      85
+    ]
+  },
+  {
+    "id": 81,
+    "name": "Water Averse",
+    "help": "WATER RESISTANCE reduced.",
+    "kind": "debuff",
+    "group": "Elemental resistance",
+    "untimed": false,
+    "conflicts": [
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      82,
+      83,
+      84,
+      85
+    ]
+  },
+  {
+    "id": 82,
+    "name": "Fire Averse",
+    "help": "FIRE RESISTANCE reduced.",
+    "kind": "debuff",
+    "group": "Elemental resistance",
+    "untimed": false,
+    "conflicts": [
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      83,
+      84,
+      85
+    ]
+  },
+  {
+    "id": 83,
+    "name": "Ice Averse",
+    "help": "ICE RESISTANCE reduced.",
+    "kind": "debuff",
+    "group": "Elemental resistance",
+    "untimed": false,
+    "conflicts": [
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82,
+      84,
+      85
+    ]
+  },
+  {
+    "id": 84,
+    "name": "Light Averse",
+    "help": "LIGHT RESISTANCE reduced.",
+    "kind": "debuff",
+    "group": "Elemental resistance",
+    "untimed": false,
+    "conflicts": [
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82,
+      83,
+      85
+    ]
+  },
+  {
+    "id": 85,
+    "name": "Dark Averse",
+    "help": "DARK RESISTANCE reduced.",
+    "kind": "debuff",
+    "group": "Elemental resistance",
+    "untimed": false,
+    "conflicts": [
+      70,
+      71,
+      72,
+      73,
+      74,
+      75,
+      76,
+      77,
+      78,
+      79,
+      80,
+      81,
+      82,
+      83,
+      84
+    ]
+  }
+];

@@ -1,0 +1,23 @@
+{
+  "battles": {
+    "entry_unit_002": {
+      "label": "Golyat (opening battle)",
+      "map": "bg000_01_c1_t00",
+      "source": "Hand-surveyed map (Map Layout 1.ods): all 247 tile heights and all 8 unit positions match"
+    }
+  },
+  "maps": {
+    "bg000_01_c1_t00": {
+      "label": "Golyat",
+      "source": "Hand survey, 247/247 tiles match"
+    },
+    "bg003_01_c0_t00": {
+      "label": "Almorica Castle gates",
+      "source": "Hand survey of row Y=16 matches 23/23 tiles (next best map: 13/23)"
+    },
+    "bg003_01_c0_t20": {
+      "label": "Almorica Castle gates (t20 variant)",
+      "source": "Same tile data as bg003_01_c0_t00"
+    }
+  }
+}

@@ -1,0 +1,173 @@
+import {renderEquipmentSetBonuses} from './equipmentsetbonuses.js';
+import{canRemoveStatusBehaviours}from'../game/aieditor.js';
+import { parseXlce } from '../lib/pakd.js';
+import { AI_ENTRY, BEHAVIOURS, STOCK_AI_ROWS, W, addedBehaviours, behaviourRow } from '../game/aiprofiles.js';
+
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+export class IntegratedMods {
+  constructor(ed) {
+    this.ed = ed; // DataEditor (dat, original, races, ctx)
+    this.mods = [{key:"menu-controls",title:"Menu controls",applied:()=>!!ed.menuMods?.enabledIn('menu'),changed:()=>!!ed.menuMods?.dirtyIn('menu'),render:(detail,onChange)=>ed.menuMods.render(detail,onChange,ed)},this.statusBehaviours()];
+    this.mods.push({key:'bug-fixes',title:'Bug Fixes',
+      applied:()=>!!ed.menuMods?.enabledIn('bug-fixes'),
+      changed:()=>!!ed.menuMods?.dirtyIn('bug-fixes'),
+      render:(detail,onChange)=>ed.menuMods.renderBugFixes(detail,onChange,ed)});
+    this.mods.push(this.classChange('modPreparation','Mod Preparation'));
+    this.mods.push({key:'equipment-set-bonuses',title:'Equipment Set Bonuses',
+      applied:()=>!!ed.menuMods?.value.equipmentSetBonuses,
+      changed:()=>!!ed.menuMods&&(ed.menuMods.setsDirty||['equipmentSetBonuses','equipmentSetFreeSkills'].some(
+        key=>!!ed.menuMods.value[key]!==!!JSON.parse(ed.menuMods.original)[key])),
+      render:(detail,onChange)=>renderEquipmentSetBonuses(detail,ed.menuMods,ed,onChange)});
+    this.mods.push(this.classChange('specialClassChange','Special Characters Can Change Class'));
+    this.mods.push(this.weaponMod('proficiencyII','Proficiency II'));
+    this.mods.push(this.weaponMod('throwReborn','Throw Reborn'));
+    this.mods.push(this.weaponMod('rougesReborn','Rouges Reborn'));
+    this.mods.push({key:'hard-mode',title:'Hard Mode',
+      applied:()=>!!ed.menuMods?.value.enemyArcherRange||!!ed.menuMods?.value.enemyLevelScaling||ed.menuMods?.enemyLoadoutsEnabled||ed.menuMods?.startingCardsEnabled('enemyStartingCards')||ed.menuMods?.statusEnabled(true),
+      changed:()=>!!ed.menuMods&&(!!ed.menuMods.value.enemyArcherRange!==!!JSON.parse(ed.menuMods.original).enemyArcherRange||ed.menuMods.startingCardsChanged('enemyStartingCards')||ed.menuMods.statusChanged(true)||ed.menuMods.enemyLevelsChanged||ed.menuMods.enemyLoadoutsChanged),
+      render:(detail,onChange)=>ed.menuMods.renderHardMode(detail,onChange,ed)});
+    this.mods.push({key:'cheats',title:'Cheats',
+      applied:()=>ed.menuMods?.cheatsEnabled,
+      changed:()=>ed.menuMods?.cheatsChanged,
+      render:(detail,onChange)=>ed.menuMods.renderCheats(detail,onChange,ed)});
+    if(ed.pspSpells)this.mods.push({key:'psp-spells',title:'PSP spell restoration',applied:()=>ed.pspSpells.enabled,changed:()=>ed.pspSpells.dirty||ed.battleChanged()&&ed.pspSpells.count>0,render:(detail,onChange)=>ed.pspSpells.render(detail,onChange)});
+  }
+
+  /** The AI table (battle data entry 27) as it is now. */
+  aiTable() { return parseXlce(this.ed.dat.pakd.entries[AI_ENTRY].data); }
+
+  statusBehaviours() {
+    const ed = this.ed;
+    const mods = ed.menuMods;
+    const ids = BEHAVIOURS.map((_, k) => STOCK_AI_ROWS + k);
+    const profilesPresent = () => this.aiTable().count >= STOCK_AI_ROWS + BEHAVIOURS.length;
+    const scoringEnabled = () => !!(mods?.value.aiStatus || mods?.value.aiStatusAll);
+    const addProfiles = () => {
+      const table = this.aiTable();
+      if (profilesPresent()) return;
+      if (table.count < STOCK_AI_ROWS) throw new Error('The game’s original AI profiles are missing.');
+      const rows = BEHAVIOURS.slice(table.count - STOCK_AI_ROWS).map(preset => behaviourRow(table, preset));
+      for (const row of rows) ed.appendEntryRow(AI_ENTRY, row);
+    };
+    return {
+      key: 'status-ai',
+      title: 'AI Plus',
+      summary: `AI ${ids[0]} prioritizes buffs and AI ${ids[1]} prioritizes ailments. Assign the profiles under Battles → AI behaviour, or enable the Buff and Debuff choices below for player Auto Battle.`,
+      untested: 'The native game scores status effects as zero during AI look-ahead. AI Plus corrects that scoring for the selected profiles.',
+      applyLabel: () => profilesPresent() ? 'Enable AI status scoring' : 'Add AI Plus profiles',
+      ready: () => profilesPresent() ? 'Profiles 113 and 114 are present. Use Save to keep your changes, then Files → Apply project to install them.' : '',
+      controls: (detail,onChange) => {
+        mods?.renderOptions(detail,onChange,ed,'ai');
+        this.renderTrapAI(detail,onChange);
+      },
+      applied: () => profilesPresent() && (scoringEnabled() || !mods?.supported),
+      changed: () => this.aiTable().count !== STOCK_AI_ROWS || !!ed.menuMods?.dirtyIn('ai'),
+      undoChanged: () => !mods?.value.aiChoices && canRemoveStatusBehaviours(this.aiTable(), addedBehaviours(this.aiTable())),
+      apply: () => {
+        addProfiles();
+        if (mods?.supported && !scoringEnabled()) mods.value.aiStatus = true;
+      },
+      undo: () => {
+        const t=this.aiTable();if(!canRemoveStatusBehaviours(t,addedBehaviours(t)))throw new Error('AI profiles have been customized or added. Automatic removal is unavailable so those profiles and their battle assignments are preserved.');
+        while (this.aiTable().count > STOCK_AI_ROWS) ed.dropEntryRow(AI_ENTRY);
+      },
+    };
+  }
+
+  renderTrapAI(detail,onChange) {
+    const ed=this.ed, mods=ed.menuMods;
+    const table=this.aiTable(), id=mods?.value.trapAiProfile??0;
+    const first=STOCK_AI_ROWS+BEHAVIOURS.length;
+    const added=id>=first && id<table.count;
+    const disabled=!mods?.info.trapAiVersion||!mods.info.project||!mods.value.rougesReborn||ed.ctx.readOnly?.();
+    const section=document.createElement('section');
+    section.innerHTML=`<h3>Trap AI</h3>
+      <p>Strongly prioritizes Booby Trap on valid ground near opponents. Units need the skill equipped and enough MP. Other turns use the preset’s melee priorities.</p>
+      ${added?`<p>Assign <b>Trap AI (#${id})</b> in Battles → AI behaviour. ${mods.value.rougesReborn?'Save and apply the project to use it.':'Enable Rouges Reborn to use trap scoring.'}</p>`:
+        `<p class="hint">${!mods?.info.project?'Open a project to add this preset.':!mods.value.rougesReborn?'Enable Rouges Reborn to add this preset.':table.count<first?'Apply AI Plus above to add the Buff and Debuff profiles first.':table.count>255?'All AI profile slots are occupied.':'Adds a new profile. Existing assignments stay as they are.'}</p>
+         <button data-trap-ai ${disabled||table.count<first||table.count>255?'disabled':''}>Add Trap AI preset</button>`}`;
+    detail.append(section);
+    const button=section.querySelector('[data-trap-ai]');
+    if(button)button.onclick=()=>{
+      const latest=this.aiTable();
+      if(disabled||latest.count<first||latest.count>255)return;
+      const row=behaviourRow(latest,{base:11,set:{[W.friendlyDamage]:-2000}});
+      const profile=ed.appendEntryRow(AI_ENTRY,row);
+      mods.value.trapAiProfile=profile;
+      ed.ctx.tables?.()?.updateProjectOptions(mods);
+      onChange();
+    };
+  }
+
+  classChange(key,title) {
+    const options=this.ed.menuMods;
+    return {key,title,applied:()=>!!options?.value[key],
+      changed:()=>!!options&&(!!options.value[key]!==!!JSON.parse(options.original)[key]||
+          (key==='modPreparation'&&(options.groupsDirty||options.spellSetsDirty||options.skillSetsDirty||options.equipmentPermissionsDirty))||
+        (key==='specialClassChange'&&['advancedBeastFamilies','genericSpecialRecruitment'].some(
+          field=>!!options.value[field]!==!!JSON.parse(options.original)[field]))),
+      render:(detail,onChange)=>options.renderClassChange(detail,onChange,this.ed,key,title)};
+  }
+
+  weaponMod(key,title) {
+    const options=this.ed.menuMods;
+    return {key,title,applied:()=>!!options?.value[key],
+      changed:()=>!!options&&!!options.value[key]!==!!JSON.parse(options.original)[key],
+      render:(detail,onChange)=>options.renderWeaponMod(detail,onChange,this.ed,key,title)};
+  }
+
+  renderList(list, selected, onSelect) {
+    list.innerHTML = '';
+    this.mods.forEach((m, i) => {
+      const b = document.createElement('button');
+      b.className = `data-item${i === selected ? ' active' : ''}`;
+      b.dataset.index = String(i);
+      b.style.gridTemplateColumns = 'minmax(0, 1fr) auto';
+      b.innerHTML = `<span class="data-name">${esc(m.title)}${m.changed() ? ' <span class="dirty">●</span>' : ''}</span><span class="picker-id">${m.applied() ? 'on' : 'off'}</span>`;
+      b.onclick = () => onSelect(i);
+      list.append(b);
+    });
+  }
+
+  renderDetail(detail, i, onChange) {
+    const m = this.mods[i];
+    if(m.render){m.render(detail,onChange);return;}
+    const on = m.applied();
+    detail.innerHTML = `
+      <div class="data-head">
+        <div>
+          <h1>${esc(m.title)}</h1>
+          <div class="meta">Integrated mod · ${on ? 'applied' : 'not applied'} · saved with the game data (battle_data_release.dat)</div>
+          <p class="mod-summary">${esc(m.summary)}</p>
+          <p class="hint warn">${esc(m.untested ?? 'Not tested in game yet: check a few special characters in different classes (sprite, skills, equipment) before relying on it.')}</p>
+          <div class="data-actions">
+            ${on && m.ready ? '' : `<button id="mod-apply" ${on || this.ed.ctx.readOnly?.() ? 'disabled' : ''}>${esc(m.applyLabel?.() ?? 'Apply')}</button>`}
+            <button id="mod-undo" class="ghost" ${(m.undoChanged?.() ?? m.changed()) ? '' : 'disabled'}>Undo (back to the game's own data)</button>
+          </div>
+          ${m.ready?.() ? `<p class="hint">${esc(m.ready())}</p>` : ''}
+        </div>
+      </div>`;
+    if(m.controls){const controls=document.createElement('div');controls.className='mod-details';detail.append(controls);m.controls(controls,onChange);}
+    const guard = () => {
+      if (!this.ed.ctx.readOnly?.()) return true;
+      this.ed.ctx.toast('Read-only mode: start the server without --readonly to edit.', true);
+      return false;
+    };
+    const progress = (text) => this.ed.ctx.setStatus(text);
+    const apply = detail.querySelector('#mod-apply');
+    if (apply) apply.onclick = async (e) => {
+      if (!guard()) return;
+      e.target.disabled = true;
+      try {
+        await m.apply(progress);
+        this.ed.ctx.setStatus(`Applied: ${m.title}`);
+      } catch (err) {
+        console.error(err);
+        this.ed.ctx.toast(err.message, true);
+      }
+      onChange();
+    };
+    detail.querySelector('#mod-undo').onclick = () => { if (guard()) { m.undo(); onChange(); } };
+  }
+}

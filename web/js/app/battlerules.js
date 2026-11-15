@@ -1,0 +1,41 @@
+import{CHAPTERS,loadChapter}from'../game/cutscene.js';
+import{addDefeatRule,battleScriptRules,editBattleRule,battleRosterOptions}from'../game/battlerules.js';
+import{createPicker}from'../ui/picker.js';
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const types=[{id:0x37,name:'Character has fallen'},{id:0x38,name:'Character HP at most (%)'},{id:0x3c,name:'Character is alive'},{id:0x3d,name:'Character HP at least (%)'},{id:0x34,name:'Primary enemy count'},{id:0x35,name:'Enemy count at most, excluding character'},{id:0x36,name:'Enemy count at least, excluding character'}];
+const ops=['equals','does not equal','less than','at most','greater than','at least'];
+export class BattleRulesPanel{
+ constructor(ctx){this.ctx=ctx;this.token=0;}
+ async render(host,doc,stage){
+  const token=++this.token,ctx=this.ctx,contexts=ctx.catalog.battleContexts(doc).filter(c=>c.stage===stage),active=ctx.catalog.activeContext(doc),context=contexts.find(c=>c.id===this.contextId)??contexts.find(c=>c.id===active?.id)??contexts[0];
+  host.replaceChildren();if(!context){host.textContent='No chapter script link was found for this battle stage.';return;}
+  const definition=CHAPTERS.find(c=>c.prefix===context.chapter);if(!definition)return;
+  host.innerHTML='<p class="muted">Reading chapter battle rules…</p>';
+  try{
+   const chapter=await loadChapter(definition);if(token!==this.token||!host.isConnected)return;
+   chapter.invocationBank();const rules=battleScriptRules(chapter,context),roster=battleRosterOptions(doc,ctx.tables());
+   host.innerHTML=`<h3>Actual chapter rules</h3>${contexts.length>1?`<label>Recorded use <select data-use aria-label="Script battle use">${contexts.map(c=>`<option value="${esc(c.id)}" ${c.id===context.id?'selected':''}>${esc(c.scene)} · ${c.chapter}</option>`).join('')}</select></label>`:''}<p class="muted">${esc(context.scene)} · changes below affect the script checks themselves. Existing closing scenes, story flags, rewards and recruitment links stay in place. Alternate branches are listed separately. The game’s built-in side-defeat and Denam checks still run alongside these scripts.</p><div data-outcomes></div><details data-other><summary>Other battle triggers (${rules.filter(r=>r.outcome==='event').length})</summary><p class="muted">These include dialogue, retreats and conditionally linked endings. Their checks are editable, but they are not automatically treated as wins or defeats.</p><div data-events></div></details><div class="new-defeat-rule"><b>Add defeat condition</b><p class="muted">Game over when this character falls, during this recorded battle use.</p><span data-protect></span><button data-add-defeat type="button">Add defeat condition</button></div><p data-rule-error class="error" role="alert"></p><hr>`;
+   const $=q=>host.querySelector(q);if($('[data-use]'))$('[data-use]').onchange=e=>{this.contextId=e.target.value;this.render(host,doc,stage);};
+   const outcomeRules=rules.filter(r=>r.outcome!=='event');if(!outcomeRules.length)$('[data-outcomes]').innerHTML='<p class="muted">No direct scripted victory or defeat exit was found. This battle may use built-in resolution or one of the conditional triggers below.</p>';
+   for(const rule of rules){
+    const card=document.createElement('section');card.className='battle-rule-card';card.innerHTML=`<h4>${rule.outcome==='victory'?'Victory sequence':rule.outcome==='defeat'?'Defeat sequence':'Battle event'} · part ${rule.record.scene}</h4><p class="muted">Checked at: ${esc(rule.groups.join(' / '))}. ${rule.trigger.expression?.op===0x60?'All listed checks and original story guards must hold.':'The original AND/OR arrangement is preserved.'}</p><div data-checks></div><details><summary>Preserved story guards</summary><p class="muted">${rule.trigger.conditions.filter(c=>!rule.checks.some(x=>x.op===c.op&&x.args.toString()===c.args.toString())).map(c=>esc(c.op===0x30||c.op===0x31?`${c.op===0x30?'Story':'Local'} flag ${c.args[0]} ${ops[c.args[1]]??c.args[1]} ${c.args[2]}`:`Original condition 0x${c.op.toString(16)} (${c.args.join(', ')})`)).join('<br>')||'No additional guards.'}</p></details><p data-error class="error" role="alert"></p><button data-apply-rule type="button" ${rule.checks.length?'':'disabled'}>Apply script rule</button>`;
+    const checks=rule.checks.map(c=>({op:c.op,args:[...c.args]}));
+    checks.forEach((check,i)=>{const row=document.createElement('div');row.className='battle-check-row';card.querySelector('[data-checks]').append(row);
+     const draw=()=>{
+      row.innerHTML=`<label>Check ${i+1}<select data-type aria-label="Rule ${rule.record.scene} check ${i+1}">${types.map(o=>`<option value="${o.id}" ${o.id===check.op?'selected':''}>${o.name}</option>`).join('')}</select></label><div data-fields></div>`;
+      const fields=row.querySelector('[data-fields]'),argIndex=check.op===0x37||check.op===0x3c?1:2;
+      if(check.op!==0x34){const value=check.args[argIndex],picker=createPicker({options:roster,value,allowRaw:false,onChange:id=>check.args[argIndex]=Number(id)});picker.setAttribute('aria-label',`Rule ${rule.record.scene} character ${i+1}`);fields.append(picker);if(!roster.some(o=>o.id===value)){picker.querySelector('.picker-name').textContent=ctx.tables().unitName(value)||`Character ${value}`;const note=document.createElement('p');note.className='muted';note.textContent='Stored character is outside this formation. Choose a replacement from this battle’s roster.';fields.append(note);}}
+      if([0x38,0x3d,0x35,0x36].includes(check.op)){const label=document.createElement('label');label.textContent=[0x38,0x3d].includes(check.op)?'HP percent':'Enemy count';const input=document.createElement('input');input.type='number';input.min='0';input.max=[0x38,0x3d].includes(check.op)?'100':'255';input.value=check.args[0];input.oninput=()=>check.args[0]=Number(input.value);label.append(input);fields.append(label);}
+      if(check.op===0x34){fields.innerHTML=`<label>Comparison<select data-op>${ops.map((o,n)=>`<option value="${n}" ${n===check.args[0]?'selected':''}>${o}</option>`).join('')}</select></label><label>Count<input data-count type="number" min="0" max="255" value="${check.args[1]}"></label>`;fields.querySelector('[data-op]').onchange=e=>check.args[0]=Number(e.target.value);fields.querySelector('[data-count]').oninput=e=>check.args[1]=Number(e.target.value);}
+      row.querySelector('[data-type]').onchange=e=>{const oldChar=check.op===0x34?roster[0]?.id??1:check.args[argIndex];check.op=Number(e.target.value);check.args=check.op===0x37?[0,oldChar]:check.op===0x3c?[1,oldChar]:check.op===0x34?[0,0]:[check.op===0x35||check.op===0x36?0:20,0,oldChar];draw();};
+     };draw();
+    });
+    if(!checks.length)card.querySelector('[data-checks]').innerHTML='<p class="muted">This exit is controlled by story flags; it has no mapped unit or enemy-count check.</p>';
+    card.querySelector('[data-apply-rule]').disabled||=!!ctx.readOnly();
+    card.querySelector('[data-apply-rule]').onclick=()=>{if(ctx.readOnly())return;try{for(const check of checks)if([0x38,0x3d].includes(check.op)&&check.args[0]>100)throw new Error('HP percent must be between 0 and 100');const changed=editBattleRule(chapter,context,rule,checks);if(changed){ctx.chapterChanged(chapter);ctx.toast('Chapter battle rule updated. Use Save to write it.');}this.render(host,doc,stage);}catch(e){card.querySelector('[data-error]').textContent=e.message;}};
+    (rule.outcome==='event'?$('[data-events]'):$('[data-outcomes]')).append(card);
+   }
+   let protectedId=roster[0]?.id;const protect=createPicker({options:roster,value:protectedId,allowRaw:false,onChange:id=>protectedId=Number(id)});protect.setAttribute('aria-label','Character whose fall causes defeat');$('[data-protect]').append(protect);$('[data-add-defeat]').disabled=!roster.length||!!ctx.readOnly();$('[data-add-defeat]').onclick=()=>{if(ctx.readOnly())return;try{addDefeatRule(chapter,context,protectedId);ctx.chapterChanged(chapter);ctx.toast('Defeat check added. Use Save to write it.');this.render(host,doc,stage);}catch(e){$('[data-rule-error]').textContent=e.message;}};
+  }catch(e){host.innerHTML=`<h3>Actual chapter rules</h3><p class="error">${esc(e.message)}</p>`;}
+ }
+}

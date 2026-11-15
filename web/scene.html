@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Map Scene Lab</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { margin: 0; background: #14171c; color: #e9e6df; font: 13px system-ui, sans-serif; display: grid; grid-template-rows: auto 1fr; height: 100vh; }
+    header { display: flex; gap: 10px; align-items: center; padding: 8px 12px; border-bottom: 1px solid #2e3440; flex-wrap: wrap; }
+    select, input, button { font: inherit; color: inherit; background: #1b1f26; border: 1px solid #3a4252; border-radius: 6px; padding: 4px 7px; }
+    canvas { width: 100%; height: 100%; display: block; }
+    #info { color: #9aa1ad; }
+  </style>
+</head>
+<body>
+  <header>
+    <b>Map Scene Lab</b>
+    <label>Map <input id="map" value="bg000_01_c1_t00" size="18"></label>
+    <button id="load">Load</button>
+    <label>Texture <select id="tex"></select></label>
+    <label>Mode <select id="mode"><option value="0">Textured + lighting</option><option value="1">Texture only</option><option value="2">Lighting only</option></select></label>
+    <label>Light × <input id="light" type="number" step="0.1" value="2" style="width:60px"></label>
+    <span id="info"></span>
+  </header>
+  <canvas id="c"></canvas>
+  <script type="module">
+    import { loadScene } from './js/game/bgscene.js';
+    import { SceneView } from './js/ui/scene3d.js';
+    const $ = (s) => document.querySelector(s);
+    const view = new SceneView($('#c'), { controls: true });
+    window.sceneView = view;
+    async function load() {
+      $('#info').textContent = 'Loading…';
+      const t0 = performance.now();
+      const scene = await loadScene(`bg/${$('#map').value.trim()}.dat`);
+      window.scene = scene;
+      const colour = scene.textures.filter((t) => !/ripple|\.tga|_m\*/.test(t.name));
+      $('#tex').innerHTML = scene.textures.map((t) => `<option>${t.name}</option>`).join('');
+      $('#tex').value = colour[0]?.name;
+      view.setScene(scene, colour[0]?.name);
+      $('#info').textContent = `${scene.name}: ${scene.mesh.count} vertices, ${scene.textures.length} textures (${scene.textures.map((t) => `${t.name} ${t.width}×${t.height} f${t.format}`).join(', ')}) · BC7 ${view.supportsBC7 ? 'yes' : 'NO'} · ${Math.round(performance.now() - t0)} ms`;
+    }
+    $('#load').onclick = load;
+    $('#tex').onchange = () => view.setTexture($('#tex').value);
+    $('#mode').onchange = () => { view.mode = Number($('#mode').value); view.render(); };
+    $('#light').onchange = () => { view.light = Number($('#light').value); view.render(); };
+    load().catch((e) => { $('#info').textContent = e.message; console.error(e); });
+  </script>
+</body>
+</html>
