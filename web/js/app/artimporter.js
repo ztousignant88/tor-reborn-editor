@@ -73,6 +73,46 @@ export class ArtImporter{
    this.status('Choose a name and the type of character, then build the preview.');
   }catch(e){this.status(e.message,true);}
  }
+ helperSheetInputs(profile) {
+  const slots = profile.helpers.filter(helper => helper.sheet >= 0);
+  if (!slots.length) return '';
+  return `<fieldset style="grid-column:1/-1" data-custom-helper-options>
+   <legend>Aura and mask sheets</legend>
+   <label class="check"><input type="checkbox" data-own-helpers aria-label="Use my own aura and mask sheets"> Use my own aura and mask sheets</label>
+   <div data-helper-sheets hidden><div class="art-import-fields">
+    ${slots.map(helper => `<label>${helper.type === 'aura' ? 'Aura' : 'Mask'} sheet ${helper.sheet + 1} · ${helper.width} × ${helper.height}<input type="file" accept="image/png,.png" data-helper-png="${helper.type}" data-helper-sheet="${helper.sheet}" aria-label="${helper.type === 'aura' ? 'Aura' : 'Mask'} sheet ${helper.sheet + 1}"></label>`).join('')}
+   </div><p class="hint">Use PNGs at the displayed native dimensions. Keep all RGBA channels from the exported aura or mask, including outline and control colours. Automatic aura and mask generation is disabled while this option is selected. Unselected helper sheets keep their existing artwork. Enable helper artwork when exporting to obtain the templates.</p></div>
+  </fieldset>`;
+ }
+ bindHelperInputs() {
+  const toggle = this.$('[data-own-helpers]');
+  if (toggle) toggle.onchange = () => {
+   this.invalidate();
+   this.syncHelperInputs();
+  };
+  this.syncHelperInputs();
+ }
+ syncHelperInputs() {
+  const toggle = this.$('[data-own-helpers]');
+  const own = !!toggle?.checked;
+  const sheets = this.$('[data-helper-sheets]');
+  if (sheets) sheets.hidden = !own;
+  for (const input of this.dialog.querySelectorAll('[data-helper-png]')) input.disabled = this.busy || !own;
+  for (const selector of ['[data-new-aura]', '[data-aura]', '[data-masks]']) {
+   const input = this.$(selector);
+   if (input) input.disabled = this.busy || own;
+  }
+ }
+ async readHelperInputs(read) {
+  if (!this.$('[data-own-helpers]')?.checked) return {};
+  const auraPNGs = [], maskPNGs = [];
+  for (const input of this.dialog.querySelectorAll('[data-helper-png]')) {
+   const png = await read(input);
+   if (png) (input.dataset.helperPng === 'aura' ? auraPNGs : maskPNGs)[Number(input.dataset.helperSheet)] = png;
+  }
+  if (!auraPNGs.some(Boolean) && !maskPNGs.some(Boolean)) throw new Error('Choose at least one custom aura or mask PNG, or turn off Use my own aura and mask sheets.');
+  return {auraPNGs, maskPNGs, aura: false, masks: false};
+ }
  async loadNewCharacterArt(files){this.faceBox=null;const gen=this.characterGeneration=(this.characterGeneration??0)+1,host=this.$('[data-new-art-inputs]');if(!host)return;host.replaceChildren();
   try{const {poseGroup}=await import('../game/actorposes.js'),{NEW_CHARACTER_FAMILIES,LARGE_MONSTER_CLASS,appearanceSheets,CHARACTER_TYPES}=await import('../game/artnewcharacter.js'),actor=this.$('[data-actor]').value,family=poseGroup(actor);
    // defaults that suit the body: its own character sheet, and the large-monster class for family 8
@@ -81,8 +121,8 @@ export class ArtImporter{
    const typeCls=chosen?.cls;if(cls)cls.value=typeCls!=null&&[...cls.options].some(o=>o.value===String(typeCls))?String(typeCls):family===8?String(LARGE_MONSTER_CLASS):(cls.value===String(LARGE_MONSTER_CLASS)?'1':cls.value);
    if(!(family in NEW_CHARACTER_FAMILIES)){host.innerHTML=`<p class="hint warn">${esc(actor)} uses animation family ${family}. New characters can be humanoids or large monsters (Cyclops, golems).</p>`;return;}
    const profile=await characterProfile(actor,{files});if(gen!==this.characterGeneration||this.mode!=='new-character')return;const palettes=this.viewer.ctx.tables()?.palettes??[];
-   host.innerHTML=`<p><b>${esc(profile.actor)}</b> · ${esc(NEW_CHARACTER_FAMILIES[family])} · ${profile.sheets.length} body sheets</p><div class="art-import-fields">${profile.sheets.map((a,i)=>`<label>Body sheet ${i+1} · ${a.width} × ${a.height}<input type="file" data-new-body="${i}" accept="image/png,.png" aria-label="New character body sheet ${i+1}"></label>`).join('')}<label>Dialogue portrait<input type="file" data-new-portrait accept="image/png,.png" aria-label="New character portrait"></label><label>Sprite colours<select data-new-colour-mode aria-label="New character sprite colours"><option value="remap">Map RGB / RGBA to native palette</option><option value="indexed">Native indexed palette slots</option></select></label><label>Match colours to palette<select data-new-art-palette aria-label="Palette the body colours are matched to">${palettes.map((_,i)=>`<option value="${i}">${i} · ${['Player','Bakram','Galgastan'][i]??'Palette'}</option>`).join('')}</select></label></div><label class="check"><input type="checkbox" data-new-faces checked> Generate small faces from the body</label> <label class="check"><input type="checkbox" data-new-aura checked> Generate aura silhouettes</label>${fitOptions}<p class="hint">Use the same number for the character's Palette above so the game shows the colours you matched to. Body sheets must be at the sizes shown, laid out like the base's exported sheets.</p>`;
-   for(const el of host.querySelectorAll('input,select'))el.onchange=()=>this.invalidate();
+   host.innerHTML=`<p><b>${esc(profile.actor)}</b> · ${esc(NEW_CHARACTER_FAMILIES[family])} · ${profile.sheets.length} body sheets</p><div class="art-import-fields">${profile.sheets.map((a,i)=>`<label>Body sheet ${i+1} · ${a.width} × ${a.height}<input type="file" data-new-body="${i}" accept="image/png,.png" aria-label="New character body sheet ${i+1}"></label>`).join('')}${this.helperSheetInputs(profile)}<label>Dialogue portrait<input type="file" data-new-portrait accept="image/png,.png" aria-label="New character portrait"></label><label>Sprite colours<select data-new-colour-mode aria-label="New character sprite colours"><option value="remap">Map RGB / RGBA to native palette</option><option value="indexed">Native indexed palette slots</option></select></label><label>Match colours to palette<select data-new-art-palette aria-label="Palette the body colours are matched to">${palettes.map((_,i)=>`<option value="${i}">${i} · ${['Player','Bakram','Galgastan'][i]??'Palette'}</option>`).join('')}</select></label></div><label class="check"><input type="checkbox" data-new-faces checked> Generate small faces from the body</label> <label class="check"><input type="checkbox" data-new-aura checked> Generate aura silhouettes</label>${fitOptions}<p class="hint">Use the same number for the character's Palette above so the game shows the colours you matched to. Body sheets must be at the sizes shown, laid out like the base's exported sheets.</p>`;
+   for(const el of host.querySelectorAll('input,select'))el.onchange=()=>this.invalidate();this.bindHelperInputs();
    const pal=this.$('[data-palette]'),artPal=this.$('[data-new-art-palette]');if(pal&&artPal){artPal.value=pal.value;artPal.onchange=()=>{pal.value=artPal.value;this.invalidate();};}
   }catch(e){if(gen===this.characterGeneration)host.innerHTML=`<p class="hint warn">${esc(e.message)}</p>`;}
  }
@@ -93,13 +133,13 @@ export class ArtImporter{
   }catch(e){this.status(e.message,true);}
  }
  async loadCharacterInputs(files){this.faceBox=null;const gen=this.characterGeneration=(this.characterGeneration??0)+1;this.invalidate();this.$('[data-build]').disabled=true;this.$('[data-character-inputs]').replaceChildren();this.status('Reading native body sheet sizes…');try{const profile=await characterProfile(this.$('[data-actor]').value,{files});if(gen!==this.characterGeneration||!['character','batch'].includes(this.mode))return;
-   const input=this.$('[data-character-inputs]');input.innerHTML=`<p><b>${esc(profile.actor)}</b> · ${profile.paths.length} related object files · ${profile.sheets.length} body sheets</p>${this.mode==='character'?`<div class="art-import-fields">${profile.sheets.map((a,i)=>`<label>Body sheet ${i+1} · ${a.width} × ${a.height}<input type="file" data-body="${i}" accept="image/png,.png" aria-label="Character body sheet ${i+1}"></label>`).join('')}<label>Dialogue portrait (optional)<input type="file" data-portrait accept="image/png,.png" aria-label="Character dialogue portrait"></label><label>Body PNG colours<select data-colour-mode aria-label="Character body colour mode"><option value="indexed">Native indexed palette slots</option><option value="remap">Map RGB / RGBA to native palette</option></select></label></div><label class="check"><input data-portrait-all type="checkbox" checked> Use the supplied portrait for all existing portrait variants</label><p class="hint">Body sheets and portrait are optional individually; choose at least one. Use exported native sheet layouts. Mapping RGB / RGBA colours keeps the existing palette and makes transparency binary; inspect the converted preview. Without a portrait, existing dialogue portraits are kept.</p>${fitOptions}`:'<p class="hint">Generates the selected helper pictures from this character’s current saved body art. It does not replace the body sheets or dialogue portraits.</p>'}`;
-   for(const el of input.querySelectorAll('input,select'))el.onchange=()=>this.invalidate();this.$('[data-build]').disabled=false;this.status('Choose inputs and helper outputs, then build the preview.');
+   const input=this.$('[data-character-inputs]');input.innerHTML=`<p><b>${esc(profile.actor)}</b> · ${profile.paths.length} related object files · ${profile.sheets.length} body sheets</p>${this.mode==='character'?`<div class="art-import-fields">${profile.sheets.map((a,i)=>`<label>Body sheet ${i+1} · ${a.width} × ${a.height}<input type="file" data-body="${i}" accept="image/png,.png" aria-label="Character body sheet ${i+1}"></label>`).join('')}${this.helperSheetInputs(profile)}<label>Dialogue portrait (optional)<input type="file" data-portrait accept="image/png,.png" aria-label="Character dialogue portrait"></label><label>Body PNG colours<select data-colour-mode aria-label="Character body colour mode"><option value="indexed">Native indexed palette slots</option><option value="remap">Map RGB / RGBA to native palette</option></select></label></div><label class="check"><input data-portrait-all type="checkbox" checked> Use the supplied portrait for all existing portrait variants</label><p class="hint">Body sheets and portrait are optional individually; choose at least one. Use exported native sheet layouts. Mapping RGB / RGBA colours keeps the existing palette and makes transparency binary; inspect the converted preview. Without a portrait, existing dialogue portraits are kept.</p>${fitOptions}`:'<p class="hint">Generates the selected helper pictures from this character’s current saved body art. It does not replace the body sheets or dialogue portraits.</p>'}`;
+   for(const el of input.querySelectorAll('input,select'))el.onchange=()=>this.invalidate();this.bindHelperInputs();this.$('[data-build]').disabled=false;this.status('Choose inputs and helper outputs, then build the preview.');
   }catch(e){if(gen===this.characterGeneration)this.status(e.message,true);}
  }
  invalidate(){this.stopMotion();this.$('[data-fit-offer]')?.remove();this.$('[data-sprite-offer]')?.remove();this.$('[data-character-motion]')?.remove();this.$('[data-review]')?.remove();this.plan=null;this.$('[data-save]').hidden=true;this.$('[data-summary]').replaceChildren();this.$('[data-compare]').replaceChildren();this.status('Settings changed. Build a new preview.');}
  status(s,error=false){this.$('[data-status]').textContent=s;this.$('[data-status]').classList.toggle('error',error);}
- controls(disabled){for(const x of this.dialog.querySelectorAll('button,input,select'))x.disabled=disabled;}
+ controls(disabled){for(const x of this.dialog.querySelectorAll('button,input,select'))x.disabled=disabled;this.syncHelperInputs();}
  /** Small face icons: the pose they are cut from, a box to drag and size, live and generated icons. */
  renderFacePanel(plan){this.$('[data-face-panel]')?.remove();const f=plan.face;if(!f)return;
   const panel=document.createElement('section');panel.dataset.facePanel='';panel.className='face-panel';
@@ -134,11 +174,12 @@ export class ArtImporter{
     if(!info.customCharacterVersion)throw new Error('Restart the updated editor server to create new characters');
     const pngBytes=async input=>{const file=input?.files?.[0];if(!file)return null;if(file.size>32*1024*1024)throw new Error('PNG exceeds the 32 MB import limit');return new Uint8Array(await file.arrayBuffer());};
     const bodyPNGs=await Promise.all([...this.dialog.querySelectorAll('[data-new-body]')].map(pngBytes)),portraitPNG=await pngBytes(this.$('[data-new-portrait]')),tables=this.viewer.ctx.tables(),artPi=Number(this.$('[data-new-art-palette]')?.value??this.$('[data-palette]').value);
-    const art=bodyPNGs.some(Boolean)||portraitPNG?{bodyPNGs,portraitPNG,portraitAll:true,fitPortraits,colourMode:this.$('[data-new-colour-mode]')?.value??'remap',palette:tables?.palette(artPi),paletteFor:i=>tables?.palette(i),classes:tables?.tables.class,faceBox:this.faceBox??null,faces:this.$('[data-new-faces]')?.checked??true,pictures:false,aura:this.$('[data-new-aura]')?.checked??true,masks:bodyPNGs.some(Boolean)}:null;
+    const helpers=await this.readHelperInputs(pngBytes);
+    const art=bodyPNGs.some(Boolean)||portraitPNG||helpers.auraPNGs?.some(Boolean)||helpers.maskPNGs?.some(Boolean)?{bodyPNGs,portraitPNG,portraitAll:true,fitPortraits,colourMode:this.$('[data-new-colour-mode]')?.value??'remap',palette:tables?.palette(artPi),paletteFor:i=>tables?.palette(i),classes:tables?.tables.class,faceBox:this.faceBox??null,faces:this.$('[data-new-faces]')?.checked??true,pictures:false,aura:this.$('[data-new-aura]')?.checked??true,masks:bodyPNGs.some(Boolean),...helpers}:null;
     plan=await newCharacterPlan({name:this.$('[data-character-name]').value,actor:this.$('[data-actor]').value,baseTemplate:Number(this.$('[data-template]').value),classId:Number(this.$('[data-class]').value),palette:Number(this.$('[data-palette]').value),art,progress:s=>this.status(s)});
    }else if(this.mode==='character'||this.mode==='batch'){
     const bytes=async input=>{const file=input?.files?.[0];if(!file)return null;if(file.size>32*1024*1024)throw new Error('PNG exceeds the 32 MB import limit');return new Uint8Array(await file.arrayBuffer());},tables=this.viewer.ctx.tables(),pi=Number(this.$('[data-palette]').value);
-    plan=await characterImportPlan({actor:this.$('[data-actor]').value,bodyPNGs:await Promise.all([...this.dialog.querySelectorAll('[data-body]')].map(bytes)),portraitPNG:await bytes(this.$('[data-portrait]')),portraitAll:this.$('[data-portrait-all]')?.checked??true,fitPortraits,colourMode:this.$('[data-colour-mode]')?.value??'indexed',palette:tables?.palette(pi),paletteFor:i=>tables?.palette(i),classes:tables?.tables.class,faceBox:this.faceBox??null,faces:this.$('[data-faces]').checked,pictures:this.$('[data-pictures]').checked,aura:this.$('[data-aura]').checked,masks:this.$('[data-masks]').checked,frame:this.$('[data-frame]').value===''?null:Number(this.$('[data-frame]').value),headFraction:Number(this.$('[data-crop]').value)/100,blur:Number(this.$('[data-blur]').value),batchOnly:this.mode==='batch',progress:s=>this.status(s)});
+    plan=await characterImportPlan({actor:this.$('[data-actor]').value,bodyPNGs:await Promise.all([...this.dialog.querySelectorAll('[data-body]')].map(bytes)),portraitPNG:await bytes(this.$('[data-portrait]')),portraitAll:this.$('[data-portrait-all]')?.checked??true,fitPortraits,colourMode:this.$('[data-colour-mode]')?.value??'indexed',palette:tables?.palette(pi),paletteFor:i=>tables?.palette(i),classes:tables?.tables.class,faceBox:this.faceBox??null,faces:this.$('[data-faces]').checked,pictures:this.$('[data-pictures]').checked,aura:this.$('[data-aura]').checked,masks:this.$('[data-masks]').checked,frame:this.$('[data-frame]').value===''?null:Number(this.$('[data-frame]').value),headFraction:Number(this.$('[data-crop]').value)/100,blur:Number(this.$('[data-blur]').value),...await this.readHelperInputs(bytes),batchOnly:this.mode==='batch',progress:s=>this.status(s)});
    }else if(this.mode==='package'){const file=this.$('[data-file]').files[0];if(!file)throw new Error('Choose an exported art ZIP');if(file.size>128*1024*1024)throw new Error('Art ZIP exceeds the 128 MB import limit');plan=await packageImportPlan(new Uint8Array(await file.arrayBuffer()),{palette:i=>this.viewer.ctx.tables()?.palette(i),fitPortraits,colourMode:this.$('[data-sprite-colour-mode]')?.value??'indexed',progress:s=>this.status(s)});}
    else if(this.mode==='appearance')plan=await appearanceImportPlan({target:this.$('[data-target]').value,donor:this.$('[data-donor]').value,bothWarriors:this.$('[data-both]').checked,portraits:this.$('[data-portraits]').checked,menuFaces:this.$('[data-menus]').checked,menuPoses:this.$('[data-menu-poses]').checked,palette:this.viewer.ctx.tables()?.palette(0),progress:s=>this.status(s)});
    else if(this.mode==='helper')plan=await spriteHelperPlan(this.viewer.archive,this.viewer.selected,{actor:this.$('[data-actor]').value,frame:Number(this.$('[data-frame]').value),palette:this.viewer.ctx.tables()?.palette(Number(this.$('[data-palette]').value)),mode:this.$('[data-helper-mode]').value,scale:Number(this.$('[data-scale]').value),dx:Number(this.$('[data-dx]').value),dy:Number(this.$('[data-dy]').value),headFraction:Number(this.$('[data-crop]').value)/100,blur:Number(this.$('[data-blur]').value),progress:s=>this.status(s)});

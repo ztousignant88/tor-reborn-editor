@@ -112,7 +112,7 @@ export async function newCharacterPlan({name,actor,baseTemplate=160,classId=1,pa
  if(!before||!after||!same(before.sheet.indices,after.sheet.indices))throw new Error('Cloned body art did not verify');
  // art from the start: import it onto the new character's own files before anything is saved
  let imported=null;
- if(art&&(art.bodyPNGs?.some(Boolean)||art.portraitPNG)){
+ if(art&&(art.bodyPNGs?.some(Boolean)||art.portraitPNG||art.auraPNGs?.some(Boolean)||art.maskPNGs?.some(Boolean))){
   progress('Importing the new character\'s artwork…');
   const made=new Map(files.map(f=>[f.path,f.bytes])),gameFiles=await artFiles('characters');
   const readMade=async path=>made.has(path)?artArchiveFromBytes(path,made.get(path)):readArtArchive(path);

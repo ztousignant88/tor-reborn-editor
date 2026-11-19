@@ -15,6 +15,7 @@ TABLES = {11: ('Equipment', 'armament'), 13: ('Items', 'commodity'),
           14: ('Classes', 'class'), 16: ('Spells & abilities', 'effect'),
           17: ('Battle stages', None), 18: ('Accuracy formulas', 'formula_hit_rate'),
           19: ('HP damage formulas', 'formula_hp_damage'), 20: ('HP healing formulas', 'formula_hp_restore'),
+          21: ('MP damage formulas', 'formula_mp_damage'),
           23: ('Character sheets', 'template'),
           25: ('Skill permissions', None), 26: ('Statuses', None), 27: ('AI profiles', None)}
 INDEXED = {11, 13, 14, 16, 23, 25, 26, 27}

@@ -1,5 +1,6 @@
 import { FORMULA_DOMAINS, formulaReferences, formulaTable, formulaValue, setFormulaValue } from '../game/formulas.js';
 import { touchBattleData } from '../game/battledata.js';
+import { STATUS_NAMES } from '../game/aistatusnames.js';
 
 export const FORMULA_CATEGORY = 32000;
 const SLOTS_PER_DOMAIN = 256;
@@ -8,6 +9,7 @@ const descriptions = {
   hp_damage: 'Tune how equipment, stats, action power, and situational modifiers contribute to HP damage.',
   hit_rate: 'Tune the stats and modifiers used by calculated accuracy checks. An ability can also use a separate chance setting.',
   hp_restore: 'Tune how the healer, target, equipment, and situational modifiers contribute to HP recovery.',
+  mp_damage: 'Tune the caster and target stat weights, equipped skills, statuses, and elemental modifiers used by formula-based MP damage.',
 };
 
 export class FormulaEditor {
@@ -31,6 +33,7 @@ export class FormulaEditor {
 
   profileName(domain, id) {
     if (domain.key === 'hp_restore' && id === 1) return 'Standard healing';
+    if (domain.key === 'mp_damage' && id === 1) return 'MP drain';
     const field = this.editor.schemas.armament.groups.flatMap(group => group.fields).find(field => field.key === domain.selector);
     const label = field?.options?.find(([option]) => option === id)?.[1];
     return label && !label.startsWith('<') ? label : `Profile ${id}`;
@@ -92,6 +95,7 @@ export class FormulaEditor {
       const items = formulaReferences(editor.dat, domain).get(id) ?? [];
       detail.innerHTML = `<div class="data-head"><div><h1>${esc(this.profileName(domain, id))}</h1><p class="muted">${domain.label} · Profile #${id}</p></div></div>
         <p>${descriptions[domain.key]}</p>
+        ${domain.key === 'mp_damage' ? '<p class="hint">Drain Mind uses profile 1. Its MP recovery operation uses the preceding drain result. Percentage-based MP loss and flat or percentage MP recovery use the action’s own values. The Drain Mind forecast and transfer comparison is awaiting an in-game check.</p>' : ''}
         <p class="hint">Weights apply to all actions using this profile. ${domain.key === 'hp_damage' ? 'For core damage weights, 100 represents a 1× coefficient. ' : ''}Valid edits are included in the next Save. Stock values are from clean PC game data.</p>
         <details class="formula-references" open><summary>Used by · ${items.length} direct ${items.length === 1 ? 'reference' : 'references'}</summary><div data-formula-references></div></details>
         <p data-formula-error class="error" role="alert" hidden></p><div data-formula-weights></div>`;
@@ -144,12 +148,26 @@ export class FormulaEditor {
     section.innerHTML = `<summary>${esc(group.label)}</summary><table class="formula-weights">
       <thead><tr><th scope="col">Weight</th>${domain.sides.map((side, index) => `<th scope="col">${side} · row ${id + index}</th>`).join('')}</tr></thead><tbody></tbody></table>`;
     const body = section.querySelector('tbody');
+    if (group.help) {
+      const help = document.createElement('p');
+      help.className = 'hint';
+      help.textContent = group.help;
+      section.insertBefore(help, section.querySelector('table'));
+    }
     const readOnly = this.editor.ctx.readOnly?.();
     for (const field of group.fields) {
       const row = document.createElement('tr');
       const label = document.createElement('th');
       label.scope = 'row';
       label.textContent = field.label;
+      if (field.binding) {
+        const binding = formulaValue(table.row(0), field) / 100;
+        const name = Number.isInteger(binding) && binding > 0
+          ? field.binding === 'status' ? STATUS_NAMES[binding] : this.editor.name('skill', binding)
+          : null;
+        label.textContent = name || `${field.label} · ${binding ? '#' + binding : 'Unassigned'}`;
+      }
+      if (field.help) label.title = field.help;
       row.append(label);
       domain.sides.forEach((side, index) => {
         const key = id + index;
@@ -164,8 +182,8 @@ export class FormulaEditor {
         input.min = field.type === 'int' ? '-32768' : '0';
         input.max = field.type === 'int' ? '32767' : '65535';
         input.value = String(current);
-        input.readOnly = readOnly || !field.editable;
-        input.setAttribute('aria-label', `${side} ${group.label} ${field.label}`);
+        input.readOnly = readOnly || !field.editable || !!field.sides && !field.sides.includes(index);
+        input.setAttribute('aria-label', `${side} ${group.label} ${label.textContent}`);
         input.oninput = () => {
           if (input.readOnly) return;
           try {

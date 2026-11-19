@@ -7,6 +7,8 @@ export const FORMULA_DOMAINS = [
     sides: ['Attacker', 'Defender'] },
   { key: 'hp_restore', entry: 20, size: 268, label: 'HP Healing', process: 2,
     sides: ['Healer', 'Recipient'] },
+  { key: 'mp_damage', entry: 21, size: 276, label: 'MP Damage', process: 4,
+    sides: ['Caster', 'Target'] },
 ];
 
 const OPERATIONS = [0x2a, 0x44, 0x5e];
@@ -60,6 +62,7 @@ export function formulaValue(row, field) {
 
 export function setFormulaValue(table, id, field, value) {
   if (!Number.isInteger(id) || id < 1 || id >= table.count || !field.editable ||
+      field.sides && !field.sides.includes((id - 1) % 2) ||
       field.size !== 2 || field.offset < 0 || field.offset + 2 > table.rowSize) {
     throw new Error('This formula field cannot be edited.');
   }

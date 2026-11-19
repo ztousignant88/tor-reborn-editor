@@ -1,6 +1,6 @@
 # TO:R Editor
 
-**November 17, 2026**
+**November 19, 2026**
 
 A free, unofficial Windows editor for Tactics Ogre: Reborn. Edit battles, maps, cutscenes, game data, AI and art, and use Integrated Mods to configure gameplay changes per project.
 
@@ -48,7 +48,9 @@ When you add a unit in **Battles**, Save checks that the stage will load enough 
 | **Integrated Mods** | Menu Controls, AI Plus, Mod Preparation, restored spells and classes, and Hard Mode and Cheat options |
 | **Files** | Projects, project merges, art imports and exports, Save Editor, and restore tools |
 
-**Formulas:** Open **Stats & Values → Others → Formulas** to edit HP Damage, Accuracy, and HP Healing weights. Each profile lists its stock values and the equipment and effect records that currently reference it. Select a record from **Used by** to open it. Save and apply the project to use your changes in game.
+**Formulas:** Open **Stats & Values → Others → Formulas** to edit HP Damage, Accuracy, HP Healing, and MP Damage weights. Each profile lists its stock values and the equipment and effect records that currently reference it. Select a record from **Used by** to open it. Save and apply the project to use your changes in game.
+
+**Import character helpers:** In **Files → Art importer/exporter**, choose **Import character** or **Create an independent character**. Beneath the body sheets, enable **Use my own aura and mask sheets** to supply PNGs at the displayed native sizes. Supplied sheets use their full RGBA channels and appear in the rebuild preview. Export with helper artwork enabled to obtain matching templates.
 
 **Add an icon:** Use **Files → Art importer/exporter → Add new icon**. Choose the icon type and a 64 × 64 PNG, preview it, and add it to the project. Select its name in the record's **Custom icon** picker. For an active ability, use its linked effect. Save, then apply the project. Imported icons can be exported as PNGs from the art viewer.
 

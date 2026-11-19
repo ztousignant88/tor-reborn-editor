@@ -149,6 +149,16 @@ Mask images (_mask)
   established. Do not replace every channel with a plain silhouette. Use the
   helper and inspect the result in game when changing body coverage.
 
+Custom aura and mask import
+  Enable helper artwork when exporting to obtain the aura and mask PNGs.
+  In Import character or Create an independent character, enable 'Use my own
+  aura and mask sheets' beneath the body sheets. Match each PNG to its body
+  sheet and the displayed native dimensions. All RGBA channels are imported,
+  including outline and mask control colours. The selected files replace
+  automatic aura and mask generation; unselected slots keep their existing art.
+  Review each supplied and rebuilt image before saving the import project.
+  Package import also accepts edits to exported aura and mask PNGs.
+
 Item, equipment, spell, skill and finisher icons
   Full-colour textures, often with many icons in one atlas. Edit the intended
   icon in place without resizing or moving its neighbours. Multiple levels or
