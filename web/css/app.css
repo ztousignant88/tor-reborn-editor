@@ -577,6 +577,18 @@ button.link { background: none; border: none; padding: 0; color: var(--accent); 
 /* Others categories have no thumbnail: reserve the name column for the name. */
 .others-category{grid-template-columns:minmax(0,1fr) auto;min-width:0}
 .others-category .data-name,.others-entry .data-name{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;line-height:1.4}
+.formula-link-count { display: block; }
+.formula-nav button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.formula-references, .formula-weight-group { margin: 12px 0; }
+.formula-references summary, .formula-weight-group summary { cursor: pointer; font-weight: 600; }
+.formula-references ul { max-height: 200px; overflow: auto; margin: 8px 0; padding-left: 20px; }
+.formula-references li { margin: 3px 0; }
+.formula-weights { width: 100%; max-width: 860px; text-align: left; border-collapse: collapse; }
+.formula-weights th, .formula-weights td { padding: 7px 10px; border-bottom: 1px solid var(--line); }
+.formula-weights td { width: 27%; }
+.formula-weights input { width: min(100%, 110px); }
+.formula-weights input[aria-invalid="true"] { outline: 1px solid var(--danger); }
+.formula-weights small { display: block; margin-top: 3px; }
 .others-entry{padding-top:7px;padding-bottom:7px}
 .equipment-set-detail{padding:0 18px 20px}.set-limits{display:grid;grid-template-columns:minmax(180px,auto) 1fr;gap:8px 18px;max-width:900px}.set-limits dt{font-weight:600}.set-limits dd{margin:0}
 .equipment-set-member{display:grid;grid-template-columns:36px minmax(0,1fr) auto;align-items:center;gap:10px;padding:6px 0;max-width:850px;border-bottom:1px solid var(--line)}

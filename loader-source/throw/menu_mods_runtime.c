@@ -126,6 +126,7 @@ static int mm_prepare_clocks(void){
 #include "modules/ai_mp_recovery.c"
 #include "modules/offhand_damage_fix.c"
 #include "modules/armor_resistance_fix.c"
+#include "../dorgalua_xl.h"
 #include "modules/ai_choices.c"
 #include "modules/archer_range.c"
 #include "modules/buff_card_spawns.c"
@@ -170,6 +171,8 @@ static DWORD WINAPI mm_initialize(void *module){
         mm_install_offhand_damage_fix();
     if (GetPrivateProfileIntW(L"ArmorResistanceFix", L"Enabled", 0, config))
         mm_install_armor_resistance_fix();
+    if (GetPrivateProfileIntW(L"DorgaluaXLFix", L"Enabled", 0, config))
+        mm_install_dorgalua_xl();
     if(GetPrivateProfileIntW(L"ModPreparationClassGroups",L"Enabled",0,config)){if(mm_install_class_groups(config))mm_install_class_info();}
     if(GetPrivateProfileIntW(L"ChapterVideos",L"Disabled",0,config))mm_install_chapter_videos();
     else mm_log("Chapter videos: normal playback.\r\n");

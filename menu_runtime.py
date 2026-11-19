@@ -2,6 +2,7 @@
 from pathlib import Path
 import hashlib,json,os,subprocess,datetime,uuid
 import class_change
+import dorgalua_xl
 import weapon_mods
 import modprep_groups
 import modprep_sets
@@ -10,12 +11,13 @@ import modprep_spellsets
 import modprep_equipperms
 import enemy_equipment_overrides as equipment_overrides
 
-BUG_FIX_SECTIONS={'offhandDamageFix': 'OffhandDamageFix', 'armorResistanceFix': 'ArmorResistanceFix'}
+BUG_FIX_SECTIONS={'offhandDamageFix': 'OffhandDamageFix', 'armorResistanceFix': 'ArmorResistanceFix',
+                  'dorgaluaXLFix': 'DorgaluaXLFix'}
 
 FIELDS=('fastForward','chariot','autoBattle','unionLevel','skipChapterVideos','aiStatus','aiStatusAll','aiChoices','aiEnemyMpRecovery','aiDefaultBuffWeight','aiDefaultHealingWeights',*BUG_FIX_SECTIONS,'modPreparation','equipmentSetBonuses','equipmentSetFreeSkills','specialClassChange','advancedBeastFamilies','genericSpecialRecruitment',*weapon_mods.KEYS,'enemyArcherRange','battleLevelSync','disableBuffCardSpawns','enemyLevelScaling','levelCap99','pspSpellRuntime','enemyFinishers','enemyProficiency40','enemyProficiencyLevel','enemyRandomSkills','enemyRandomSpells','enemyRandomEquipment','enemyAutoGear','enemyAutoRareGear','enemyAutoAccessories','enemyAutoMovement','enemyForceCrestOfFire','enemyAutoHeavenlyWeapons')
 # switches added after settings were first saved: missing ones read as off
 LATER_FIELDS=('aiStatus','aiStatusAll','aiChoices','aiEnemyMpRecovery','aiDefaultBuffWeight','aiDefaultHealingWeights',*BUG_FIX_SECTIONS,'modPreparation','equipmentSetBonuses','equipmentSetFreeSkills','specialClassChange','advancedBeastFamilies','genericSpecialRecruitment',*weapon_mods.KEYS,'enemyArcherRange','battleLevelSync','disableBuffCardSpawns','enemyLevelScaling','levelCap99','pspSpellRuntime','enemyFinishers','enemyProficiency40','enemyProficiencyLevel','enemyRandomSkills','enemyRandomSpells','enemyRandomEquipment','enemyAutoGear','enemyAutoRareGear','enemyAutoAccessories','enemyAutoMovement','enemyForceCrestOfFire','enemyAutoHeavenlyWeapons')
-FILES=('dinput8.dll','menu-mods.ini',*class_change.SIDECARS,*weapon_mods.ROGUE_FILES,modprep_sets.FILE,modprep_equipperms.FILE)
+FILES=('dinput8.dll','menu-mods.ini',*class_change.SIDECARS,*weapon_mods.ROGUE_FILES,modprep_sets.FILE,modprep_equipperms.FILE,dorgalua_xl.SIDECAR)
 CARD_SETTINGS={'enemyStartingCards':'EnemyStartingCards','playerStartingCards':'PlayerStartingCards'}
 CARD_IDS={0,1,2,3,13,15}
 LABELS={'fastForward':'Five-speed fast-forward','chariot':'Early Chariot','autoBattle':'Early Auto Battle','unionLevel':'Remove story level cap','skipChapterVideos':'Skip chapter videos','aiStatus':'AI status scoring: new AI behaviours (113 and up)','aiStatusAll':'AI status scoring: every AI, original included','aiChoices':'Buff / Debuff Auto Battle buttons'}
@@ -24,6 +26,7 @@ LABELS['aiDefaultBuffWeight']='Default buff weight'
 LABELS['aiDefaultHealingWeights']='Default HP healing weights'
 LABELS['offhandDamageFix']='Two-handed weapon and empty offhand fix'
 LABELS['armorResistanceFix']='Armor physical resistance fix'
+LABELS['dorgaluaXLFix']='XL Dorgalua fix'
 LABELS.update(modPreparation='Mod Preparation',specialClassChange='Special Characters Can Change Class',advancedBeastFamilies='Advanced beast families')
 LABELS.update(equipmentSetBonuses='Equipment Set Bonuses',equipmentSetFreeSkills='Slot-free equipment set skills')
 LABELS['genericSpecialRecruitment']='Recruit generic special units'
@@ -187,8 +190,9 @@ def assert_game_closed(config):
 def custom_icon_ini(enabled):
  return b'\r\n[CustomIcons]\r\nEnabled=1\r\n' if enabled else b''
 
-def prepare(config,value,project=None,class_payload=None,custom_icons=False):
+def prepare(config,value,project=None,class_payload=None,custom_icons=False,read=None):
  v=settings(value)
+ if v['dorgaluaXLFix'] and not project:raise ValueError('Open a project to use the XL Dorgalua fix')
  if v['pspSpellRuntime'] and not project:raise ValueError('Open a project to use the PSP spell status fixes')
  if not project and any(v[k] for k in ENEMY_LOADOUT_FIELDS):raise ValueError('Open a project to use the enemy loadout options')
  if v['aiChoices'] and not project:raise ValueError('Open a project to add Buff / Debuff Auto Battle buttons')
@@ -230,6 +234,9 @@ def prepare(config,value,project=None,class_payload=None,custom_icons=False):
  if sets:desired[modprep_sets.FILE]=sets
  if permissions:desired[modprep_equipperms.FILE]=permissions
  desired.update(weapon_mods.rogue_files(v))
+ if v['dorgaluaXLFix']:
+  sprite = read(dorgalua_xl.SPRITE) if read else config.resolve(dorgalua_xl.SPRITE).read_bytes()
+  desired[dorgalua_xl.SIDECAR] = dorgalua_xl.roster_sidecar(sprite)
  for name,data in desired.items():
   if data is not None and current[name] is not None and name not in recorded:
    raise ValueError(name+' belongs to another mod. The editor will not overwrite its loader or configuration.')
@@ -298,6 +305,7 @@ def info(config):
 def save(config,body,atomic):
  if not isinstance(body,dict)or 'settings'not in body or body.get('project')!=config.open_project()or body.get('dataRoot')!=str(config.data_root):raise ValueError('Game/project changed or settings are missing; reload before saving menu settings')
  value=settings(body.get('settings'));name=config.open_project()
+ if value['dorgaluaXLFix'] and not name:raise ValueError('Open a project to use the XL Dorgalua fix')
  if value['pspSpellRuntime'] and not name:raise ValueError('Open a project to use the PSP spell status fixes')
  if not name and any(value[k] for k in ENEMY_LOADOUT_FIELDS):raise ValueError('Open a project to use the enemy loadout options')
  if value['aiChoices']and not name:raise ValueError('Open a project to add Buff / Debuff Auto Battle buttons')
@@ -319,7 +327,7 @@ def save(config,body,atomic):
  if any(k in body for k in (modprep_groups.OVERRIDES,'communityClassGroups','communityEquipmentSets','communitySpellSets','communitySkillSets','communityEquipmentPermissions')):raise ValueError('Open a project to save class groups and sets')
  installed=settings((config.state().get('menuRuntime')or{}).get('settings'))
  runtime_files=(config.state().get('menuRuntime')or{}).get('files',{})
- if any(installed[k] for k in ENEMY_LOADOUT_FIELDS) or installed['pspSpellRuntime'] or installed['specialClassChange'] or weapon_mods.active(installed) or installed['enemyArcherRange'] or installed['enemyLevelScaling'] or installed['levelCap99'] or cards_active(installed) or statuses.active(installed) or any(name in runtime_files for name in (modprep_sets.FILE,modprep_equipperms.FILE)):
+ if any(installed[k] for k in ENEMY_LOADOUT_FIELDS) or installed['pspSpellRuntime'] or installed['specialClassChange'] or installed['dorgaluaXLFix'] or weapon_mods.active(installed) or installed['enemyArcherRange'] or installed['enemyLevelScaling'] or installed['levelCap99'] or cards_active(installed) or statuses.active(installed) or any(name in runtime_files for name in (modprep_sets.FILE,modprep_equipperms.FILE)):
   raise ValueError('Open the applied project to change its runtime options')
  plan=prepare(config,value);state=config.state();receipt,changed=deploy(config,plan,atomic)
  try:

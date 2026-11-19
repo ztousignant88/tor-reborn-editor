@@ -1,6 +1,12 @@
 // File access through the local editor server (serve.py).
 
 const HEADERS = { 'X-TOR-Editor': '1' };
+let readApi = '/api';
+
+/** Use installed game assets for this page, independent of the open project. */
+export function useInstalledGameData() {
+  readApi = '/api/save-editor/data';
+}
 
 async function check(res) {
   if (res.ok) return res;
@@ -25,16 +31,16 @@ async function fetchRetry(url, options, attempts = 3) {
 
 export const source = {
   async info() {
-    return (await check(await fetch('/api/info', { headers: HEADERS }))).json();
+    return (await check(await fetch(`${readApi}/info`, { headers: HEADERS }))).json();
   },
   async list(dir) {
-    return (await (await check(await fetch(`/api/list?${q({ dir })}`, { headers: HEADERS }))).json()).files;
+    return (await (await check(await fetch(`${readApi}/list?${q({ dir })}`, { headers: HEADERS }))).json()).files;
   },
   /** Read a file relative to Data/. With `max`, only the first bytes are sent. */
   async read(path, max, track = false) {
     const params = max ? { path, max } : { path };
     const headers = track ? {...HEADERS, 'X-TOR-Track-File': '1'} : HEADERS;
-    const res = await check(await fetchRetry(`/api/file?${q(params)}`, { headers }));
+    const res = await check(await fetchRetry(`${readApi}/file?${q(params)}`, { headers }));
     return { bytes: new Uint8Array(await res.arrayBuffer()), size: Number(res.headers.get('X-File-Size')),
       scope: res.headers.get('X-TOR-File-Scope'), revision: res.headers.get('X-TOR-File-Revision'),
       view: res.headers.get('X-TOR-Content-View') };

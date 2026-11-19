@@ -1,6 +1,6 @@
 # TO:R Editor
 
-**November 14, 2026**
+**November 17, 2026**
 
 A free, unofficial Windows editor for Tactics Ogre: Reborn. Edit battles, maps, cutscenes, game data, AI and art, and use Integrated Mods to configure gameplay changes per project.
 
@@ -44,13 +44,17 @@ When you add a unit in **Battles**, Save checks that the stage will load enough 
 | **Cutscenes** | Cast, dialogue, movement, commands, linked battle scenes, and after-events |
 | **Maps** | Terrain, elevation, block sides, objects, and the map library |
 | **Stats & Values** | Classes, items, equipment, spells and abilities, character sheets, shops, spell and skill sets, crafting, and auto loadouts |
-| **Stats & Values → Others** | AI profiles, equipment sets, hiring rules, the Warren Report, and other tables |
+| **Stats & Values → Others** | Combat formulas, AI profiles, equipment sets, hiring rules, the Warren Report, and other tables |
 | **Integrated Mods** | Menu Controls, AI Plus, Mod Preparation, restored spells and classes, and Hard Mode and Cheat options |
-| **Files** | Projects, project merges, art imports and exports, and restore tools |
+| **Files** | Projects, project merges, art imports and exports, Save Editor, and restore tools |
+
+**Formulas:** Open **Stats & Values → Others → Formulas** to edit HP Damage, Accuracy, and HP Healing weights. Each profile lists its stock values and the equipment and effect records that currently reference it. Select a record from **Used by** to open it. Save and apply the project to use your changes in game.
 
 **Add an icon:** Use **Files → Art importer/exporter → Add new icon**. Choose the icon type and a 64 × 64 PNG, preview it, and add it to the project. Select its name in the record's **Custom icon** picker. For an active ability, use its linked effect. Save, then apply the project. Imported icons can be exported as PNGs from the art viewer.
 
 **Share a project:** Zip the individual folder under `editor/projects` that contains `project.json` and `files`. The recipient extracts that folder under their own `editor/projects`, then loads and applies it. Use **Files → Merge Projects…** to review conflicts before combining edits. Review exported art packages and project files for third-party game assets before sharing them.
+
+**Edit a game save:** Open **Files → Save Editor…** and choose a profile and slot. The save editor reads names and art from the installed game. It can edit your army, inventory, campaign records, faction reputation, shop level, and the Auto-battle and Chariot Tarot unlocks. See the [Save Editor guide](docs/Save%20Editor.md) for supported save layouts and backups.
 
 ## Troubleshooting
 

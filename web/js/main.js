@@ -1070,6 +1070,10 @@ document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   for (const [name, m] of Object.entries(MENUS)) if (!$(m.panel).hidden) { showMenu(name, false); $(m.button).focus(); }
 });
+$('#save-editor-open').onclick = () => {
+  showMenu('files', false);
+  window.open('/save-editor/', '_blank', 'noopener');
+};
 let artViewer = null;
 $('#art-open').onclick = async () => {
   showMenu('files', false);

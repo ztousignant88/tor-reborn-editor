@@ -9,7 +9,7 @@ from tools.menu_mods.compiler.tor_formats import DatArchive, Pakd, Xlce
 
 
 SETTINGS = ('rougesReborn', 'throwReborn', 'proficiencyII', 'specialClassChange',
-            'aiChoices')
+            'aiChoices', 'dorgaluaXLFix')
 KEY = 'integratedContentEdits'
 
 

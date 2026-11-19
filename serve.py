@@ -24,6 +24,7 @@ import project_merge
 import ai_validation
 import ai_choices_data
 import class_change
+import dorgalua_xl
 import integrated_content
 import weapon_mods
 import modprep_groups
@@ -38,6 +39,7 @@ import json
 import math
 import os
 import re
+import save_editor
 import shutil
 import socket
 import stat
@@ -89,11 +91,14 @@ def _restriction_settings(value):
 
 
 class EditorConfig:
-    def __init__(self, data_root: Path, backup_root: Path, project_root: Path, read_only: bool):
+    def __init__(self, data_root: Path, backup_root: Path, project_root: Path, read_only: bool,
+                 saves_root: Path | None = None):
         self.data_root = data_root
         self.backup_root = backup_root
         self.project_root = project_root
         self.read_only = read_only
+        self.saves_root = saves_root
+        self.save_backup_root = (backup_root.parent / "saves").resolve()
         self.write_lock = threading.Lock()
         self.apply_progress = ApplyProgress()
 
@@ -279,6 +284,8 @@ class Handler(SimpleHTTPRequestHandler):
         if not self._require_api_header():
             return
         try:
+            if route.startswith(save_editor.API):
+                return save_editor.get(self, route)
             if route == "/api/info":
                 state = self.config.state()
                 project = self.config.open_project()
@@ -298,6 +305,7 @@ class Handler(SimpleHTTPRequestHandler):
                     "customIconVersion": 1,
                     "customIcons": self.config.custom_icons(),
                     "menuModsVersion": 1,
+                    "dorgaluaXLFixVersion": 1,
                     "projectMergeVersion": 1,
                     "applyProgressVersion": 1,
                     "specialClassChangeVersion": 2,
@@ -352,6 +360,8 @@ class Handler(SimpleHTTPRequestHandler):
         except FileNotFoundError:
             return self._error(HTTPStatus.NOT_FOUND, "file not found")
         except (OSError, ValueError) as e:
+            if route.startswith(save_editor.API) and isinstance(e, ValueError):
+                return self._error(HTTPStatus.UNPROCESSABLE_ENTITY, str(e))
             return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, str(e))
 
     def do_POST(self):
@@ -361,6 +371,8 @@ class Handler(SimpleHTTPRequestHandler):
         if self.config.read_only:
             return self._error(HTTPStatus.FORBIDDEN, "server started with --readonly")
         try:
+            if route == save_editor.API + "slot":
+                return save_editor.write(self, _atomic_replace)
             if route == "/api/menu-mods":
                 length = int(self.headers.get("Content-Length", "0"))
                 if not 0 < length <= 512*1024:
@@ -443,6 +455,8 @@ class Handler(SimpleHTTPRequestHandler):
         except FileNotFoundError as e:
             return self._error(HTTPStatus.NOT_FOUND, str(e))
         except (OSError, ValueError) as e:
+            if route == save_editor.API + "slot" and isinstance(e, ValueError):
+                return self._error(HTTPStatus.UNPROCESSABLE_ENTITY, str(e))
             return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, str(e))
 
     # ---- endpoints -----------------------------------------------------
@@ -966,7 +980,8 @@ class Handler(SimpleHTTPRequestHandler):
         former_weapons = set(applied.get("weaponModFiles", []))
         former_sets = set(applied.get("spellSetFiles", [])) | set(applied.get("permissionSetFiles", []))
         former_cap = set(applied.get("levelCapFiles", []))
-        former = set(applied.get("classChangeFiles", [])) | former_weapons | former_sets | former_cap | set(applied.get("aiChoiceFiles", []))
+        former_xl = set(applied.get("dorgaluaXLFiles", []))
+        former = set(applied.get("classChangeFiles", [])) | former_weapons | former_sets | former_cap | former_xl | set(applied.get("aiChoiceFiles", []))
         removed = set(applied.get("files", {})) - set(files) if editor_view or revert_others else set()
         def read(rel):
             game = self.config.resolve(rel)
@@ -980,6 +995,8 @@ class Handler(SimpleHTTPRequestHandler):
                 raise ValueError("Installed permission set data changed outside the editor: " + rel)
             if rel in former_cap and (not game.is_file() or _sha1(game.read_bytes()) != applied["files"][rel]):
                 raise ValueError("Installed level cap data changed outside the editor: " + rel)
+            if rel in former_xl and (not game.is_file() or _sha1(game.read_bytes()) != applied["files"][rel]):
+                raise ValueError("Installed XL Dorgalua data changed outside the editor: " + rel)
             if rel in files:
                 path = (source / rel).resolve()
                 if source.resolve() not in path.parents:
@@ -1048,6 +1065,8 @@ class Handler(SimpleHTTPRequestHandler):
             generated.update(weapon_files)
         progress(45, "Preparing table changes")
         set_files = {}
+        if value["dorgaluaXLFix"]:
+            generated[class_change.BATTLE] = dorgalua_xl.build(effective(class_change.BATTLE))
         extra_text = {}
         if self._integrated_text_keys(generated, read):
             text_files = (self.config.rel(path) for path in self.config.resolve("localize").glob("LocalizeText_*.dat")) if editor_view else (
@@ -1069,6 +1088,8 @@ class Handler(SimpleHTTPRequestHandler):
             if any(row["classes"] for row in spells + skills):
                 set_files = modprep_spellsets.build(effective(class_change.BATTLE), spells, skills)
                 generated.update(set_files)
+                if value["dorgaluaXLFix"] and any(dorgalua_xl.CLASS in row["classes"] for row in skills):
+                    generated[class_change.BATTLE] = dorgalua_xl.build(generated[class_change.BATTLE])
         if value["levelCap99"] and not editor_view:
             archive, _, _ = level_cap_99.build_archive(effective(class_change.BATTLE))
             generated[class_change.BATTLE] = archive
@@ -1112,6 +1133,9 @@ class Handler(SimpleHTTPRequestHandler):
                     package.writestr("Data/" + rel, data)
                 for rel, data in sidecars.items():
                     package.writestr(rel, data)
+                if value["dorgaluaXLFix"]:
+                    sprite = files.get(dorgalua_xl.SPRITE) or read(dorgalua_xl.SPRITE)
+                    package.writestr(dorgalua_xl.SIDECAR, dorgalua_xl.roster_sidecar(sprite))
                 if sets:
                     package.writestr(modprep_sets.FILE, sets)
                 if permissions:
@@ -1151,7 +1175,7 @@ class Handler(SimpleHTTPRequestHandler):
             project_files = meta.get("files", {})
             state = self.config.state()
             before = state.get("applied") or {}
-            value, generated, class_files, weapon_files, set_files, ai_files, class_payload, _ = self._project_payload(
+            value, generated, class_files, weapon_files, set_files, ai_files, class_payload, read = self._project_payload(
                 name, meta, state, bool(body.get("revertOthers")), progress)
             progress(53, "Comparing project and game files")
             files = dict(project_files)
@@ -1176,7 +1200,8 @@ class Handler(SimpleHTTPRequestHandler):
             spell_restore = set(others) & (set(before.get("spellSetFiles", [])) | set(before.get("permissionSetFiles", [])))
             cap_restore = set(others) & set(before.get("levelCapFiles", []))
             ai_restore = set(others) & set(before.get("aiChoiceFiles", []))
-            forced_restore = class_restore | weapon_restore | spell_restore | cap_restore | ai_restore
+            xl_restore = set(others) & set(before.get("dorgaluaXLFiles", []))
+            forced_restore = class_restore | weapon_restore | spell_restore | cap_restore | ai_restore | xl_restore
             if before.get("classChangeFiles") and not value["specialClassChange"]:
                 class_change.assert_can_remove()
             weapon_mods.assert_can_remove((state.get("menuRuntime") or {}).get("settings", {}), value)
@@ -1188,9 +1213,9 @@ class Handler(SimpleHTTPRequestHandler):
             if not body.get("revertOthers"):
                 custom_action_icons |= any(row['bank'] != 'itemicon' and icon_import.archive_path(row['bank']) in others
                                            for row in icon_import.catalog(before.get('customIcons')))
-            runtime = menu_runtime.prepare(self.config, value, name, class_payload, custom_action_icons)
+            runtime = menu_runtime.prepare(self.config, value, name, class_payload, custom_action_icons, read=read)
             if body.get("dryRun"):
-                return {"files": plan, "changed": changed, "others": others, "classRestore": sorted(class_restore), "weaponRestore": sorted(weapon_restore), "spellRestore": sorted(spell_restore), "levelCapRestore": sorted(cap_restore), "aiChoiceRestore": sorted(ai_restore), "appliedBefore": before.get("name"), "runtime": runtime["public"]}
+                return {"files": plan, "changed": changed, "others": others, "classRestore": sorted(class_restore), "weaponRestore": sorted(weapon_restore), "spellRestore": sorted(spell_restore), "levelCapRestore": sorted(cap_restore), "aiChoiceRestore": sorted(ai_restore), "dorgaluaXLRestore": sorted(xl_restore), "appliedBefore": before.get("name"), "runtime": runtime["public"]}
             progress(74, "Checking files to write and restore")
             if not body.get("revertOthers") and "battle/battle_data_release.dat" in files and any(entry["path"] not in files for entry in before.get("artEntries", [])):
                 raise ValueError("This project replaces character tables but omits installed project characters. Take the previous project's other files out, or build from that project first.")
@@ -1272,6 +1297,8 @@ class Handler(SimpleHTTPRequestHandler):
                     next_state["applied"]["weaponModFiles"] = sorted(weapon_files)
                 if value["levelCap99"]:
                     next_state["applied"]["levelCapFiles"] = [class_change.BATTLE]
+                if value["dorgaluaXLFix"]:
+                    next_state["applied"]["dorgaluaXLFiles"] = [class_change.BATTLE]
                 if set_files:
                     next_state["applied"]["permissionSetFiles"] = sorted(set_files)
                 if ai_files:
@@ -1696,10 +1723,11 @@ def find_default_data_root():
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--data", help="path to the game's Data folder")
+    parser.add_argument("--saves", type=Path, help="save editor folder containing GAME-*.SAV files")
     parser.add_argument("--backups", help="where original files are kept (default: editor/backups/<data folder name>)")
     parser.add_argument("--projects", help="where projects are kept (default: editor/projects)")
     parser.add_argument("--port", type=int, default=8642)
-    parser.add_argument("--readonly", action="store_true", help="never write to the game folder")
+    parser.add_argument("--readonly", action="store_true", help="view game data and saves without editing")
     parser.add_argument("--no-browser", action="store_true", help="do not open a browser window")
     args = parser.parse_args()
 
@@ -1709,7 +1737,8 @@ def main():
     backup_root = Path(args.backups).resolve() if args.backups else HERE / "backups" / "original"
     project_root = Path(args.projects).resolve() if args.projects else HERE / "projects"
 
-    Handler.config = EditorConfig(data_root, backup_root, project_root, args.readonly)
+    Handler.config = EditorConfig(data_root, backup_root, project_root, args.readonly,
+                                  args.saves.resolve() if args.saves is not None else None)
     # If the port is taken (another editor, maybe a read-only one), use the next free one
     # rather than leaving the browser to open whatever is already listening there.
     server = None

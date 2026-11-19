@@ -23,9 +23,10 @@ const options=[
  ['aiDefaultHealingWeights','Default HP healing weights','Uses 25 for zero HP healing weights across all AI profiles. The game still checks how much healing the target needs.'],
  ["offhandDamageFix", "Two-handed weapon and empty offhand fix", "Uses the main-hand weapon for affected spells and special attacks when the game selects an empty offhand."],
  ["armorResistanceFix", "Armor physical resistance fix", "Uses the incoming attack’s crushing, slashing or piercing type to choose the defender’s physical resistance."],
+ ["dorgaluaXLFix", "XL Dorgalua fix", "Prevents recruited XL Dorgalua from crashing the game on load and gives him access to Umbra, Exhalatio and Deathproof. Axe counterattacks use his native punch animation."],
 ];
 const aiKeys=new Set(['aiStatus','aiStatusAll','aiChoices','aiEnemyMpRecovery','aiDefaultBuffWeight','aiDefaultHealingWeights']);
-const bugFixKeys=new Set(['offhandDamageFix','armorResistanceFix']);
+const bugFixKeys=new Set(['offhandDamageFix','armorResistanceFix','dorgaluaXLFix']);
 const scopedOptions=scope=>options.filter(([key])=>(aiKeys.has(key)?'ai':bugFixKeys.has(key)?'bug-fixes':'menu')===scope);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const enemyEquipmentOptions=[
@@ -64,7 +65,7 @@ const enemyItemCategories = [
  ['Orbs', 'Elemental and Void Orbs'],
  ['Status removal', 'Cures such as Maca Antidote'],
 ];
-const empty=()=>({version:1,disableBuffCardSpawns:false,fastForward:false,chariot:false,autoBattle:false,unionLevel:false,battleLevelSync:false,formationLimit:0,trapAiProfile:0,skipChapterVideos:false,aiStatus:false,aiStatusAll:false,aiChoices:false,aiEnemyMpRecovery:false,aiDefaultBuffWeight:false,aiDefaultHealingWeights:false,offhandDamageFix:false,armorResistanceFix:false,modPreparation:false,equipmentSetBonuses:false,equipmentSetFreeSkills:false,specialClassChange:false,advancedBeastFamilies:false,genericSpecialRecruitment:false,proficiencyII:false,throwReborn:false,rougesReborn:false,pspSpellRuntime:false,enemyArcherRange:false,enemyLevelScaling:false,enemyFinishers:false,enemyProficiency40:false,enemyProficiencyLevel:false,enemyRandomSkills:false,enemyRandomSpells:false,enemyRandomEquipment:false,enemyAutoGear:false,enemyAutoRareGear:false,enemyAutoHeavenlyWeapons:false,enemyAutoAccessories:false,enemyAutoMovement:false,enemyForceCrestOfFire:false,enemyEquipmentOverrides:{},enemyItemPool:0,enemyLevelOffset:1,levelCap99:false});
+const empty=()=>({version:1,disableBuffCardSpawns:false,fastForward:false,chariot:false,autoBattle:false,unionLevel:false,battleLevelSync:false,formationLimit:0,trapAiProfile:0,skipChapterVideos:false,aiStatus:false,aiStatusAll:false,aiChoices:false,aiEnemyMpRecovery:false,aiDefaultBuffWeight:false,aiDefaultHealingWeights:false,offhandDamageFix:false,armorResistanceFix:false,dorgaluaXLFix:false,modPreparation:false,equipmentSetBonuses:false,equipmentSetFreeSkills:false,specialClassChange:false,advancedBeastFamilies:false,genericSpecialRecruitment:false,proficiencyII:false,throwReborn:false,rougesReborn:false,pspSpellRuntime:false,enemyArcherRange:false,enemyLevelScaling:false,enemyFinishers:false,enemyProficiency40:false,enemyProficiencyLevel:false,enemyRandomSkills:false,enemyRandomSpells:false,enemyRandomEquipment:false,enemyAutoGear:false,enemyAutoRareGear:false,enemyAutoHeavenlyWeapons:false,enemyAutoAccessories:false,enemyAutoMovement:false,enemyForceCrestOfFire:false,enemyEquipmentOverrides:{},enemyItemPool:0,enemyLevelOffset:1,levelCap99:false});
 export class MenuMods{
  constructor(info,saved){
   this.info=info;this.saved=saved;this.value={...empty(),...startingStatusDefaults(),...saved?.settings};this.original=JSON.stringify(this.value);
@@ -93,7 +94,7 @@ export class MenuMods{
  get dirty(){return JSON.stringify(this.value)!==this.original||this.groupsDirty||this.builtinGroupsDirty||this.setsDirty||this.spellSetsDirty||this.skillSetsDirty||this.equipmentPermissionsDirty;}
  get contentChanged(){
   const saved=JSON.parse(this.original);
-  return ['rougesReborn','throwReborn','proficiencyII','specialClassChange','advancedBeastFamilies','genericSpecialRecruitment','aiChoices','pspSpellRuntime']
+  return ['rougesReborn','throwReborn','proficiencyII','specialClassChange','advancedBeastFamilies','genericSpecialRecruitment','aiChoices','pspSpellRuntime','dorgaluaXLFix']
    .some(key=>!!this.value[key]!==!!saved[key]);
  }
  get enabled(){return !!this.value.formationLimit||options.some(([k])=>this.value[k]);}
@@ -123,6 +124,7 @@ export class MenuMods{
   const equipmentPermissions=structuredClone(this.equipmentPermissions);
   const builtinOverrides=structuredClone(this.builtinClassGroupOverrides);
   const settings=JSON.parse(value);
+  if (!this.info.dorgaluaXLFixVersion) delete settings.dorgaluaXLFix;
   if ((this.info.hardModeVersion??0)<3) delete settings.enemyItemPool;
   if ((this.info.hardModeVersion??0)<4) delete settings.enemyProficiencyLevel;
   if ((this.info.hardModeVersion??0)<5) delete settings.enemyRandomEquipment;
@@ -457,10 +459,14 @@ export class MenuMods{
   this.renderOptions(detail.querySelector('.mod-details'),onChange,ed,'bug-fixes');
  }
  renderOptions(detail,onChange,ed,scope){
-  const resetLabel={menu:'Use normal menu behaviour',ai:'Disable AI Plus runtime options','bug-fixes':'Disable both fixes'}[scope];
+  const resetLabel={menu:'Use normal menu behaviour',ai:'Disable AI Plus runtime options','bug-fixes':'Disable all fixes'}[scope];
   const applyHint=scope==='menu'?'AI Plus options are saved separately in the same project.':this.info.project?'Save these choices with the project, then apply it for the next game launch.':'Save these choices with the game closed, then restart it.';
   const readOnly=!this.supported||ed.ctx.readOnly?.();
-  const option=([key,label,about])=>`<label class="menu-mod-option"><input type="checkbox" data-menu-mod="${key}" ${this.value[key]?'checked':''} ${readOnly?'disabled':''}><span><b>${label}</b><small>${about}</small></span></label>`;
+  const option=([key,label,about])=>{
+   const xl=key==='dorgaluaXLFix';
+   const hint=xl&&!this.info.dorgaluaXLFixVersion?' Restart the editor to see this fix.':xl&&!this.info.project?' Open a project to enable this fix.':'';
+   return `<label class="menu-mod-option"><input type="checkbox" data-menu-mod="${key}" ${this.value[key]?'checked':''} ${readOnly||hint?'disabled':''}><span><b>${label}</b><small>${about}${hint}</small></span></label>`;
+  };
   detail.innerHTML=`${!this.supported?'<p class="hint warn">Restart the editor server to enable runtime options.</p>':''}${this.saved?.error?`<p class="hint warn">${esc(this.saved.error)}</p>`:''}${scopedOptions(scope).map(option).join('')}<div class="data-actions"><button data-native ${!this.enabledIn(scope)||readOnly?'disabled':''}>${resetLabel}</button></div><p class="hint">${this.dirtyIn(scope)?'Unsaved choices. Use the main Save button.':'Choices are saved.'} ${applyHint}</p>`;
   for(const input of detail.querySelectorAll('[data-menu-mod]'))input.onchange=()=>{if(ed.ctx.readOnly?.())return;this.value[input.dataset.menuMod]=input.checked;if(input.dataset.menuMod==='aiChoices'&&input.checked&&!this.value.aiStatusAll)this.value.aiStatus=true;onChange();};
   detail.querySelector('[data-native]').onclick=()=>{if(ed.ctx.readOnly?.())return;for(const [key]of scopedOptions(scope))this.value[key]=false;onChange();};

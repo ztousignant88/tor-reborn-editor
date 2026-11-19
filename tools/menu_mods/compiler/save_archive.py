@@ -43,13 +43,14 @@ class SaveBlock:
 
 
 class SaveArchive:
-    def __init__(self, data: bytes):
+    def __init__(self, data: bytes, *, max_block_size: int = 4 * 1024 * 1024):
         if len(data) < 60 or data[:16] != SIGNATURE:
             raise FormatError("Unsupported save signature")
         count = u32(data, 16)
         if not 1 <= count <= 16:
             raise FormatError("Invalid save block count")
         self.original = data
+        self.max_block_size = max_block_size
         self.blocks = {}
         offset = 60
         for _ in range(count):
@@ -60,7 +61,7 @@ class SaveArchive:
                 raise FormatError("Unknown or duplicate save block")
             if reserved or flags != 3:
                 raise FormatError("Unsupported save block flags")
-            if not 0 < size <= 4 * 1024 * 1024 or total != ((84 + size + 3) & ~3):
+            if not 0 < size <= self.max_block_size or total != ((84 + size + 3) & ~3):
                 raise FormatError("Invalid save block size/alignment")
             if offset + total > len(data):
                 raise FormatError("Save block exceeds file")
@@ -90,7 +91,7 @@ class SaveArchive:
             result[block.offset + 20:block.offset + 36] = digest
             result[block.offset + 84:block.offset + 84 + len(payload)] = encode_payload(payload, digest)
         encoded = bytes(result)
-        checked = SaveArchive(encoded)
+        checked = SaveArchive(encoded, max_block_size=self.max_block_size)
         if any(checked.blocks[tag].payload != replacements.get(tag, block.payload)
                for tag, block in self.blocks.items()):
             raise FormatError("Save rebuild validation failed")
