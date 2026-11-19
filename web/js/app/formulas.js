@@ -64,7 +64,7 @@ export class FormulaEditor {
         const local = domainIndex * SLOTS_PER_DOMAIN + id;
         const uses = references.get(id)?.length ?? 0;
         const button = document.createElement('button');
-        button.className = `data-item others-entry${local === selected ? ' active' : ''}`;
+        button.className = `data-item others-entry formula-entry${local === selected ? ' active' : ''}`;
         button.dataset.index = String(FORMULA_CATEGORY + local);
         button.innerHTML = `<span class="data-name">${esc(name)}<small class="muted formula-link-count">${uses} ${uses === 1 ? 'reference' : 'references'}</small></span><span class="picker-id">#${id}</span>`;
         button.onclick = () => onSelect(local);

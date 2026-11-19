@@ -577,6 +577,10 @@ button.link { background: none; border: none; padding: 0; color: var(--accent); 
 /* Others categories have no thumbnail: reserve the name column for the name. */
 .others-category{grid-template-columns:minmax(0,1fr) auto;min-width:0}
 .others-category .data-name,.others-entry .data-name{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;line-height:1.4}
+.data-item.formula-entry { grid-template-columns: minmax(0, 1fr) auto; min-width: 0; }
+.data-item.formula-entry .data-name { min-width: 0; overflow-wrap: break-word; }
+.ai-subnav.formula-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.formula-nav button { min-width: 0; white-space: normal; }
 .formula-link-count { display: block; }
 .formula-nav button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
 .formula-references, .formula-weight-group { margin: 12px 0; }
