@@ -18,6 +18,7 @@ const options=[
  ['chariot','Chariot from the start','Makes Chariot available before its normal story unlock. Normal turn history and battle restrictions still apply.'],
  ['fastForward','Five-speed fast-forward','Uses the existing speed button: Normal → Fast → Fast+ → Faster → Turbo. Press F3 to return to Normal. Press F4 to toggle 5× timing throughout the game, including the title screen and menus. The extra timing steps are 2×, 3× and 5× on top of native Fast.'],
  ['autoBattle','Auto Battle from the start','Makes the native AI control menu available early. It does not change AI profiles or automatically enable AI.'],
+ ['guestPlayerControl','Player-controlled guests','Allied guests start battles under your control and keep their guest status for story events. Takes effect when units enter battle. Versus teams still use their assigned AI.'],
  ['unionLevel','Remove the story level cap','Uses the native overall maximum, normally level 50, and hides the world-map Union Level badge. Battle level sync is separate.'],
  ['battleLevelSync','Disable battle level sync','Keeps unit levels and equipment stats at their normal values and hides the Level Sync control on the formation screen. Start the battle fresh after changing this option.'],
  ['skipChapterVideos','Skip chapter videos','Automatically skips chapter transition movies. Prologue, title movies and gallery replays remain. This option still needs an in-game chapter transition check.'],
@@ -73,7 +74,7 @@ const enemyItemCategories = [
 const empty=()=>({version:1,disableBuffCardSpawns:false,fastForward:false,chariot:false,autoBattle:false,unionLevel:false,battleLevelSync:false,formationLimit:0,trapAiProfile:0,skipChapterVideos:false,aiStatus:false,aiStatusAll:false,aiChoices:false,aiEnemyMpRecovery:false,aiDefaultBuffWeight:false,aiDefaultHealingWeights:false,offhandDamageFix:false,armorResistanceFix:false,dorgaluaXLFix:false,modPreparation:false,equipmentSetBonuses:false,equipmentSetFreeSkills:false,specialClassChange:false,advancedBeastFamilies:false,genericSpecialRecruitment:false,proficiencyII:false,throwReborn:false,rougesReborn:false,pspSpellRuntime:false,enemyArcherRange:false,enemyLevelScaling:false,enemyFinishers:false,enemyProficiency40:false,enemyProficiencyLevel:false,enemyRandomSkills:false,enemyRandomSpells:false,enemyRandomEquipment:false,enemyAutoGear:false,enemyAutoRareGear:false,enemyAutoHeavenlyWeapons:false,enemyAutoAccessories:false,enemyAutoMovement:false,enemyForceCrestOfFire:false,enemyEquipmentOverrides:{},enemyItemPool:0,enemyLevelOffset:1,levelCap99:false});
 export class MenuMods{
  constructor(info,saved){
-  this.info=info;this.saved=saved;this.value={...empty(),versusEnabled:false,...Object.fromEntries(expandedBattleOptions.map(([key])=>[key,false])),...startingStatusDefaults(),...saved?.settings};this.original=JSON.stringify(this.value);
+  this.info=info;this.saved=saved;this.value={...empty(),versusEnabled:false,guestPlayerControl:false,...Object.fromEntries(expandedBattleOptions.map(([key])=>[key,false])),...startingStatusDefaults(),...saved?.settings};this.original=JSON.stringify(this.value);
   this.communityGroups=structuredClone(saved?.communityClassGroups??[]);
   this.originalGroups=JSON.stringify(this.communityGroups);
   this.builtinClassGroupOverrides=structuredClone(saved?.builtinClassGroupOverrides??{});

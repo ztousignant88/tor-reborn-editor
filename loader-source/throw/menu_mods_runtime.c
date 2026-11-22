@@ -140,6 +140,7 @@ static int mfx_spellbook_capacity_active;
 #include "modules/enemy_items.c"
 #include "modules/enemy_proficiency.c"
 #include "modules/enemy_equipment.c"
+#include "../guest_control.h"
 #include "modules/trap_ai.c"
 #include "modules/class_groups.c"
 #include "modules/class_info.c"
@@ -206,6 +207,7 @@ static DWORD WINAPI mm_initialize(void *module){
     mm_install_enemy_starting_cards(config);
     mm_install_enemy_levels(config);
     mm_install_enemy_loadouts(config);
+    mm_install_guest_control(config);
     mm_install_enemy_equipment(config);
     mm_install_formation_limit(GetPrivateProfileIntW(L"FormationLimit",L"Units",0,config));
     if(GetPrivateProfileIntW(L"BattleLevelSync",L"Disabled",0,config))mm_disable_battle_sync();

@@ -24,6 +24,7 @@
     "1eb55bd7a6e17130d7165a5e2b7b12f94aad69fd15acb355e430988665f0141d",
     "2128695dad419565b863846ce80d25b66ccf601810218d8f502c2ede7ce471ea",
     "2325e4f7afcb8e4828d6b9e699b74db3f242dd9115302dce3cce298c7575c815",
+    "24e501a5dcc0cf2112f1536b9e3e614d0970ba6eaae43af165c810b9eacec990",
     "255f6b3a412919c92bc9ba8be9c6b55030e56cf0327497af7c0207f13638e24e",
     "26364285ec1dde8c0d7df6d2908d7c2ea98b30fe21dbd6c61a3dc4b7652de1f4",
     "27d87a11ff00292ef27c9599d2e5fcf800602abb336e95a5b0906f4a06ad4b3d",
@@ -32,6 +33,7 @@
     "2d2bedc573c253a7db04a8542ef268b3840fb85cc1cd61c03a8987876203cd66",
     "2e4a5f4d4783257b8730c23562575114be8db4d8a1c84bac85957a1faccdf759",
     "2ec501c383134fffcddd033eba0506929f514feb12ac197ed7ec10760591558a",
+    "365c9119619a44f92f8840e7242434ce384a9ccccfaee129fca03d14e24ad17a",
     "37a6a58d079d631152c9dedf1573dc67a408352a9bb653e9a3a689d2bd3aefc1",
     "397f69bf33b56004525b12a3298075cafd958e2f9e4ec6cd3870557d577cdc6f",
     "3a0e21a0c12cfa5e30766f5776f5db1fb3534c924eff03b13af1f251fe80e78e",
@@ -110,6 +112,7 @@
     "db06a7aa068c8995b9a16c49cdb953e9495e8a43917ee9edb35ebbdc9673e5eb",
     "dd3b3fdd06a44352207bed6cb47e03d531c62c47c51d55e10f448d023c7c9efe",
     "dedb838895ca644baaa5b3c5816dda2da773fdce8be4dd7fc1db07d64aea75db",
+    "def05198db9a2d3fdd8436fa394bbd75b591185d27c2336a8c93004a42f8262b",
     "dfe5f8af8aa6ef3dc3c33d3bcb1e10fa9597705b77fb514b78fbef26134ac842",
     "ec8f4a8d62bf0cac67b9ce57e5b9334f490aeb08a5f28e675ee627ba568d801a",
     "f16f3c1e803d520de9fed2832f3511a3a441384b51bcc27bb7ccd6a14b37c89c",
@@ -137,7 +140,7 @@
     "da6504e9079ca6901569cb0fa4d0bc6eac72f6769996a8146e8be6581d9650dc": {
       "label": "Steam 1.0.8.0",
       "loader": "steam-1.0.8.dll",
-      "dllSHA256": "24e501a5dcc0cf2112f1536b9e3e614d0970ba6eaae43af165c810b9eacec990",
+      "dllSHA256": "f9160c54a28bbbb61fb756bdd06f8258ad6e41604dbf2ecc0867f11e136932f3",
       "settings": [
         "expandedBattleLimit",
         "finalShowdown",
@@ -148,6 +151,7 @@
         "chariot",
         "formationLimit",
         "battleLevelSync",
+        "guestPlayerControl",
         "skipChapterVideos",
         "aiStatus",
         "aiStatusAll",
@@ -195,11 +199,11 @@
   "pspLegacyLoaders": {
     "standard": {
       "loader": "psp-standard.dll",
-      "dllSHA256": "def05198db9a2d3fdd8436fa394bbd75b591185d27c2336a8c93004a42f8262b"
+      "dllSHA256": "e0429ac7822bc284ddc7869f7da7ab88a3993822285405e4f1049daf5f58b9ed"
     },
     "throw": {
       "loader": "psp-throw.dll",
-      "dllSHA256": "365c9119619a44f92f8840e7242434ce384a9ccccfaee129fca03d14e24ad17a"
+      "dllSHA256": "7473c9c435e29abd5eb6770690ca087c53f84f0d06e5c9f079ce392356dc25ab"
     }
   }
 }

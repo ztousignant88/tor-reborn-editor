@@ -19,9 +19,8 @@ BUG_FIX_SECTIONS={'offhandDamageFix': 'OffhandDamageFix', 'armorResistanceFix': 
 FIELDS=('fastForward','chariot','autoBattle','unionLevel','skipChapterVideos','aiStatus','aiStatusAll','aiChoices','aiEnemyMpRecovery','aiDefaultBuffWeight','aiDefaultHealingWeights',*BUG_FIX_SECTIONS,'modPreparation','equipmentSetBonuses','equipmentSetFreeSkills','specialClassChange','advancedBeastFamilies','genericSpecialRecruitment',*weapon_mods.KEYS,'enemyArcherRange','battleLevelSync','disableBuffCardSpawns','enemyLevelScaling','levelCap99','pspSpellRuntime','enemyFinishers','enemyProficiency40','enemyProficiencyLevel','enemyRandomSkills','enemyRandomSpells','enemyRandomEquipment','enemyAutoGear','enemyAutoRareGear','enemyAutoAccessories','enemyAutoMovement','enemyForceCrestOfFire','enemyAutoHeavenlyWeapons')
 # switches added after settings were first saved: missing ones read as off
 LATER_FIELDS=('aiStatus','aiStatusAll','aiChoices','aiEnemyMpRecovery','aiDefaultBuffWeight','aiDefaultHealingWeights',*BUG_FIX_SECTIONS,'modPreparation','equipmentSetBonuses','equipmentSetFreeSkills','specialClassChange','advancedBeastFamilies','genericSpecialRecruitment',*weapon_mods.KEYS,'enemyArcherRange','battleLevelSync','disableBuffCardSpawns','enemyLevelScaling','levelCap99','pspSpellRuntime','enemyFinishers','enemyProficiency40','enemyProficiencyLevel','enemyRandomSkills','enemyRandomSpells','enemyRandomEquipment','enemyAutoGear','enemyAutoRareGear','enemyAutoAccessories','enemyAutoMovement','enemyForceCrestOfFire','enemyAutoHeavenlyWeapons')
-FIELDS+=battle_encounters.OPTIONS
-LATER_FIELDS+=(*battle_encounters.OPTIONS,versus.MOD_KEY)
-FIELDS+=(versus.MOD_KEY,)
+FIELDS+=(*battle_encounters.OPTIONS,versus.MOD_KEY,'guestPlayerControl')
+LATER_FIELDS+=(*battle_encounters.OPTIONS,versus.MOD_KEY,'guestPlayerControl')
 PILOT_MARKER='battle-capacity-pilot.ini'
 FILES=('dinput8.dll','menu-mods.ini',*class_change.SIDECARS,*weapon_mods.ROGUE_FILES,modprep_sets.FILE,modprep_equipperms.FILE,dorgalua_xl.SIDECAR,PILOT_MARKER)
 CARD_SETTINGS={'enemyStartingCards':'EnemyStartingCards','playerStartingCards':'PlayerStartingCards'}
@@ -55,6 +54,7 @@ LABELS['disableBuffCardSpawns']='Disable battlefield card spawns'
 LABELS['battleLevelSync']='Disable battle level sync'
 LABELS.update(expandedBattleLimit='62-unit battle limit',finalShowdown='The Final Showdown',walkingDead='The Walking Dead')
 LABELS[versus.MOD_KEY]='Versus Mode'
+LABELS['guestPlayerControl']='Player-controlled guests'
 def settings(value=None):
  if isinstance(value,dict) and value.get('equipmentSetFreeSkills') is True and 'equipmentSetBonuses' not in value:
   value={**value,'equipmentSetBonuses':True}
@@ -155,6 +155,7 @@ def ini(value):
   + ('\r\n[AIMPRecovery]\r\nEnabled=1\r\n' if v['aiEnemyMpRecovery'] else '')
   + "".join(f"\r\n[{section}]\r\nEnabled={int(v[key])}\r\n" for key,section in BUG_FIX_SECTIONS.items())
   + ('\r\n[BattleCapacity]\r\nEnabled=1\r\n' if v[battle_encounters.KEY] else '')
+  + ('\r\n[GuestControl]\r\nEnabled=1\r\n' if v['guestPlayerControl'] else '')
   + starting_card_ini(v)+statuses.ini(v)).encode('ascii')
 
 def select_loader(value,executable_hash,sets=False):
