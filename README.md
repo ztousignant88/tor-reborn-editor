@@ -45,7 +45,7 @@ When you add a unit in **Battles**, Save checks that the stage will load enough 
 | **Maps** | Terrain, elevation, block sides, objects, and the map library |
 | **Stats & Values** | Classes, items, equipment, spells and abilities, character sheets, shops, spell and skill sets, crafting, and auto loadouts |
 | **Stats & Values → Others** | Combat formulas, AI profiles, equipment sets, hiring rules, the Warren Report, and other tables |
-| **Integrated Mods** | Menu Controls, AI Plus, Mod Preparation, restored spells and classes, and Hard Mode and Cheat options |
+| **Integrated Mods** | Menu Controls, AI Plus, Versus Mode, Mod Preparation, restored spells and classes, and Hard Mode and Cheat options |
 | **Files** | Projects, project merges, art imports and exports, Save Editor, and restore tools |
 
 **Formulas:** Open **Stats & Values → Others → Formulas** to edit HP Damage, Accuracy, HP Healing, and MP Damage weights. Each profile lists its stock values and the equipment and effect records that currently reference it. Select a record from **Used by** to open it. Save and apply the project to use your changes in game.
@@ -57,6 +57,18 @@ When you add a unit in **Battles**, Save checks that the stage will load enough 
 **Share a project:** Zip the individual folder under `editor/projects` that contains `project.json` and `files`. The recipient extracts that folder under their own `editor/projects`, then loads and applies it. Use **Files → Merge Projects…** to review conflicts before combining edits. Review exported art packages and project files for third-party game assets before sharing them.
 
 **Edit a game save:** Open **Files → Save Editor…** and choose a profile and slot. The save editor reads names and art from the installed game. It can edit your army, inventory, campaign records, faction reputation, shop level, and the Auto-battle and Chariot Tarot unlocks. See the [Save Editor guide](docs/Save%20Editor.md) for supported save layouts and backups.
+
+## Large battles and overworld encounters
+
+Open a project and go to **Integrated Mods → Hard Mode → Large battles**. **Expanded Battle Limit** raises the total from 30 to 62. The Battles editor uses that limit for roster edits and counts player deployment slots, allies including guests, and enemies together. Save and apply the project to use those slots in game. The mod works with Steam 1.0.8.0. Battles using the extra slots support Chariot and disable Battle Suspend.
+
+Under **Overworld encounters**, enable **The Final Showdown**, **The Walking Dead**, or both. Each fight enables the larger limit and allows 12 players against 50 enemies. The two roads branch from Tynemouth Hill, and both fights can be replayed after Tynemouth Hill is unlocked. Save the project, apply it, and restart the game. To remove either encounter, clear its toggle, save, and apply again.
+
+## Versus Mode
+
+Enable **Integrated Mods → Versus Mode** and save the project to unlock the top-bar **Versus** button. When you first open Versus, the editor offers to enable Expanded Battle Limit for 24 vs 24 and 30 vs 30 tournaments. You can decline and play 3 vs 3, 6 vs 6, or 12 vs 12. Apply the project and restart the game before queuing a fight.
+
+Build teams from saves or generate themed squads, then queue a fight at **Almorica Castle → Versus**. Open **Match queue** to run a four-team or eight-team tournament, follow results, and enable automatic progression. See the [Versus Mode guide](docs/versus-runtime.md).
 
 ## Troubleshooting
 

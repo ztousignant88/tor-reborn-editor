@@ -28,11 +28,17 @@ export class MapCatalog {
     this.knownMaps = {};
     this.preferences = new MapPreferences();
     this.links = { battles: {}, maps: {}, stages: {} };
+    this.encounters = new Map();
     this.placeName = () => ''; // stronghold number -> name in the current text language (set by main.js)
   }
 
   setScope(info) {
     const changed = this.preferences.setScope(info);
+    this.encounters.clear();
+    for (const row of info.encounterLinks ?? []) {
+      if (!this.encounters.has(row.roster)) this.encounters.set(row.roster, []);
+      this.encounters.get(row.roster).push({ ...row, id: row.scene, slot: 'normal', sceneExists: true });
+    }
     if (changed) { this.grids.clear(); this.sceneCache = null; }
     return changed;
   }
@@ -118,6 +124,7 @@ export class MapCatalog {
 
   /** Every recorded use, including separate maps for a shared unit file. */
   battleContexts(doc) {
+    if (this.encounters.has(doc.key)) return this.encounters.get(doc.key);
     const link = this.links.battles[doc.key];
     if (link?.contexts?.length) return link.contexts;
     return link?.map ? [{ ...link, id: 'legacy', scene: link.scenes?.[0], slot: 'normal' }] : [];
@@ -131,6 +138,8 @@ export class MapCatalog {
 
   /** Current use, retaining the union of scenes for shared-file lookups. */
   battleLink(doc) {
+    const encounter = this.encounters.get(doc.key);
+    if (encounter) return { ...this.activeContext(doc), scenes: encounter.map(c => c.scene) };
     const link = this.links.battles[doc.key];
     return link ? { ...link, ...this.activeContext(doc), scenes: link.scenes } : null;
   }
@@ -149,7 +158,10 @@ export class MapCatalog {
   }
 
   /** Battle stages (stage table rows) that use this file: [{ stage, slot: 'normal' | 'special' }]. */
-  stagesFor(doc) { return this.links.stages[doc.key] ?? []; }
+  stagesFor(doc) {
+    const encounter = this.encounters.get(doc.key);
+    return encounter ? [{ stage: encounter[0].stage, slot: 'normal' }] : this.links.stages[doc.key] ?? [];
+  }
 
   setChoice(doc, mapId) {
     this.preferences.setChoice(doc.key, mapId);
@@ -157,7 +169,7 @@ export class MapCatalog {
 
   label(doc) {
     const link = this.battleLink(doc);
-    const game = link ? [this.placeLabel(link.map) || this.placeName(link.place), link.scene || link.scenes.join(', ')].filter(Boolean).join(' · ') : '';
+    const game = link?.title ?? (link ? [this.placeLabel(link.map) || this.placeName(link.place), link.scene || link.scenes.join(', ')].filter(Boolean).join(' · ') : '');
     return this.preferences.labels[doc.key] ?? this.known[doc.key]?.label ?? game;
   }
 

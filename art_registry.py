@@ -63,6 +63,13 @@ def serialize(table:FileTable)->bytes:
  header=bytearray(table.header);offset=68+len(names)+len(directories)+len(batches);struct.pack_into('<HH',header,2,len(names)//8,len(table.directories));struct.pack_into('<II',header,8,offset,offset+len(pointers));return bytes(header+names+directories+batches+pointers+external)
 
 
+SCENE_DIRECTORY_PREFIXES = {
+    901: 'C1', 902: 'C2a', 903: 'C2b', 904: 'C3a', 905: 'C3b',
+    906: 'C3c', 907: 'C4', 908: 'EP', 909: 'DLC',
+}
+MAP_NAME_LANGUAGES = ('ja-jp', 'en-us', 'fr-fr', 'de-de', 'es-es', 'zh-cn', 'zh-tw', 'ko-kr')
+
+
 def registrations(value):
     if value is None:
         return []
@@ -71,12 +78,26 @@ def registrations(value):
     result, ids, paths = [], set(), set()
     for item in value:
         if not isinstance(item, dict):
-            raise ValueError('Invalid character art registration')
+            raise ValueError('Invalid game file registration')
         directory, ident, path = item.get('directory'), item.get('id'), item.get('path')
-        if type(directory) is not int or directory not in (20, 30) or type(ident) is not int or not 1 <= ident <= 65535:
-            raise ValueError('Invalid character art ID')
-        if not isinstance(path, str) or not re.fullmatch(r'object/[A-Za-z][A-Za-z0-9_]{0,47}\.dat', path):
-            raise ValueError('New character art must be an object .dat file')
+        if type(directory) is not int or type(ident) is not int or not 1 <= ident <= 65535:
+            raise ValueError('Invalid game file ID')
+        if directory in (20, 30):
+            if not isinstance(path, str) or not re.fullmatch(r'object/[A-Za-z][A-Za-z0-9_]{0,47}\.dat', path):
+                raise ValueError('New character art must be an object .dat file')
+        elif directory in SCENE_DIRECTORY_PREFIXES:
+            prefix = SCENE_DIRECTORY_PREFIXES[directory]
+            if path != f'event/scene/{prefix}_ST_{ident:03d}.dat':
+                raise ValueError('Scene archive path must match its chapter directory and stage ID')
+        elif directory == 1001:
+            if not isinstance(path, str) or not re.fullmatch(r'battle/entry/entry_unit_\d{3,5}\.dat', path):
+                raise ValueError('Battle roster must be an entry_unit archive')
+        elif directory == 500 and ident >= 50000:
+            location, language = divmod(ident - 50000, len(MAP_NAME_LANGUAGES))
+            if path != f'menu/mapname/{MAP_NAME_LANGUAGES[language]}/STRONGHOLD_{location:03d}.dat':
+                raise ValueError('Map-name archive path must match its location and language ID')
+        else:
+            raise ValueError('Invalid game file directory')
         if (directory, ident) in ids or path.casefold() in paths:
             raise ValueError('Duplicate character art registration')
         ids.add((directory, ident)); paths.add(path.casefold())

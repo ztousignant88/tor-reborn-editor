@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <string.h>
 #include "equipment_bank.h"
+#include "../battle_capacity/battle_capacity.h"
 
 typedef void *(*CopyFn)(void *, const void *);
 typedef void (*CaptureFn)(const void *, void *, void *);
@@ -241,7 +242,7 @@ static void restore_turn(void *manager, const void *snapshot, const void *extra)
 
 static void *copy_turn(void *destination, const void *source, size_t size)
 {
-    void *result = native_copy_bytes(destination, source, size);
+    void *result = battle_capacity_copy_history(destination, source, size, native_copy_bytes);
     unsigned to = numbered_slot(destination, 0);
     if (to && size == 0x6ea8) {
         unsigned from = numbered_slot(source, 0);

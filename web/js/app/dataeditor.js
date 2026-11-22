@@ -553,14 +553,21 @@ export class DataEditor {
     return this.select(id);
   }
 
-  async showIntegratedMods(open) {
-    if (open === (this.kind === MODS)) return;
+  async showIntegratedMods(open, key) {
+    if (open === (this.kind === MODS)) {
+      if (open && key) {
+        const index = this.mods.mods.findIndex(mod => mod.key === key);
+        if (index >= 0) await this.select(index);
+      }
+      return;
+    }
     if (open) {
       if (!this.mods) throw new Error('Integrated Mods could not be loaded.');
       this.dataSelection = { kind: this.kind, selected: this.selected, selectedSkill: this.selectedSkill,
         filter: this.filter, fieldFilter: this.fieldFilter };
       this.kind = MODS;
-      this.selected = this.selectedMod ?? 0;
+      const index = this.mods.mods.findIndex(mod => mod.key === key);
+      this.selected = index >= 0 ? index : this.selectedMod ?? 0;
       this.selectedSkill = null;
       this.fieldFilter = '';
     } else {

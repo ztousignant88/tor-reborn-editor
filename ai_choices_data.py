@@ -160,14 +160,13 @@ def button_textures(donor, art):
   textures[name]=rebuild_texture(donor,name,over(base,overlay),native)
  return textures
 
-def project(read):
-    """Supply missing AI rows for the buttons, retaining profiles already saved."""
-    archive = DatArchive.read(read(BATTLE))
+def with_profiles(battle):
+    """Supply missing AI rows while retaining profiles already saved."""
+    archive = DatArchive.read(battle)
     pack = Pakd(archive.pack)
     table = Xlce(pack.entry(AI_PROFILES))
     if table.row_size != 98 or not STOCK_AI_ROWS <= table.count <= 256:
         raise ValueError('Buff and Debuff need the standard AI profile table')
-    out = build(read)
     missing = PROFILES[table.count - STOCK_AI_ROWS:]
     if missing:
         end = table.header + table.count * table.row_size
@@ -181,5 +180,14 @@ def project(read):
             data.extend(row)
         struct.pack_into('<I', data, 4, table.count + len(missing))
         data.extend(bytes(16 - len(data) % 16))
-        out[BATTLE] = archive.rebuild(rebuild_pakd(pack, {AI_PROFILES: bytes(data)}))
+        return archive.rebuild(rebuild_pakd(pack, {AI_PROFILES: bytes(data)}))
+    return battle
+
+
+def project(read):
+    battle = read(BATTLE)
+    profiles = with_profiles(battle)
+    out = build(read)
+    if profiles != battle:
+        out[BATTLE] = profiles
     return out

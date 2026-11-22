@@ -59,10 +59,10 @@ function stageRow(dat, stage) {
   return t.row(stage);
 }
 
-/** A stage's unit counts: { allies, others }. */
+/** A stage's player deployment slots and preassigned unit counts. */
 export async function stageCounts(stage) {
   const row = stageRow((await battleData()).dat, stage);
-  return { allies: row[ALLIES], others: row[OTHERS] };
+  return { deployment: row[0x10], allies: row[ALLIES], others: row[OTHERS] };
 }
 
 /** Add `delta` to a stage's count for `team`'s side (clamped to 0-255). */

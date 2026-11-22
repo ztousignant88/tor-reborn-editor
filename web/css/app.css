@@ -75,6 +75,83 @@ body.read-only .ro-badge { display: inline; }
 .pd-badge { font-weight: 400; font-size: 10px; color: var(--accent-ink); background: var(--accent); border-radius: 4px; padding: 0 5px; margin-left: 4px; }
 .pd-options .check { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; }
 .pd-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.versus-dialog { width: min(1120px, calc(100vw - 32px)); max-height: calc(100vh - 32px); padding: 16px; }
+.versus-header, .versus-options, .versus-actions { display: flex; align-items: center; gap: 16px; }
+.versus-header { justify-content: space-between; margin-bottom: 14px; }
+.versus-queue-link { margin-left: auto; color: var(--accent); }
+.versus-actions input { width: min(100%, 200px); }
+.versus-actions .visually-hidden {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+}
+.versus-header h2 { font-size: 19px; }
+.versus-header form { padding: 0; }
+.versus-options { flex-wrap: wrap; margin-bottom: 12px; }
+.versus-project { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 12px; }
+.versus-project p { margin: 0; }
+.versus-options label { display: flex; align-items: center; gap: 8px; }
+.versus-squads { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.versus-squads section {
+  display: grid; align-content: start; gap: 8px; padding: 12px;
+  background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius);
+}
+.versus-squads h3 { margin: 0; font-size: 14px; }
+.versus-squads label { display: grid; gap: 4px; color: var(--muted); }
+.versus-squads label input { max-width: 100%; }
+.versus-theme { display: flex; align-items: end; gap: 8px; flex-wrap: wrap; }
+.versus-theme label { flex: 1 1 12rem; min-width: 0; }
+.versus-unit { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 5px; align-items: center; }
+.versus-lineup { display: grid; gap: 4px; max-height: min(48vh, 390px); overflow: auto; }
+.versus-actions { margin-top: 12px; flex-wrap: wrap; row-gap: 8px; }
+.versus-actions button { flex-shrink: 0; }
+#versus-status { flex-basis: 100%; }
+.versus-result { margin-left: auto; color: var(--accent); font-weight: 600; }
+.versus-dialog .is-error { color: var(--danger); }
+#versus-map-preview { border-top: 1px solid var(--line); margin-top: 12px; }
+#versus-map-preview h3 { margin-bottom: 0; }
+.versus-field { display: grid; grid-auto-columns: minmax(8px, 22px); grid-auto-rows: 16px; gap: 1px; }
+.versus-field span { display: grid; place-items: center; font-size: 10px; color: var(--bg); border-radius: 2px; }
+.versus-side-0 { background: var(--blue); }
+.versus-side-1 { background: var(--red); }
+.versus-side-2 { background: var(--accent); }
+.versus-companion { grid-template-rows: auto minmax(0, 1fr); }
+.versus-queue { width: min(100%, 850px); margin: 0 auto; padding: 16px; overflow: auto; }
+.versus-queue-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.versus-match-list { display: grid; gap: 8px; list-style: none; padding: 0; }
+.versus-match { display: flex; justify-content: space-between; align-items: start; gap: 12px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); }
+.versus-match button { flex: none; }
+.versus-match p { margin-block: 3px 7px; }
+.versus-match details { margin-top: 6px; }
+.versus-tournament { margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+.versus-tournament-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.versus-tournament-head select { max-width: 60%; }
+.versus-bracket { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.versus-bracket article { min-width: 0; padding: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); }
+.versus-round { display: grid; gap: 10px; align-content: start; min-width: 0; }
+.versus-bracket h3, #tournament-teams p { margin: 0; }
+.versus-bracket details { margin-top: 8px; }
+.versus-bracket summary, #tournament-setup > summary { cursor: pointer; }
+.versus-bracket p { color: var(--muted); margin: 8px 0 0; }
+#tournament-controls { align-items: center; margin: 12px 0 0; }
+#tournament-controls[hidden] { display: none; }
+#tournament-controls label { display: flex; gap: 4px; align-items: center; }
+#tournament-setup, #tournament-ai { margin-top: 16px; }
+#tournament-ai > summary { cursor: pointer; }
+#tournament-ai-lineup { margin-block: 8px; max-width: 480px; }
+#tournament-form fieldset { display: grid; gap: 12px; border: 0; margin: 10px 0 0; padding: 0; min-width: 0; }
+#tournament-form .versus-queue-actions, #tournament-draft-status { margin: 0; }
+.tournament-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: end; gap: 8px; }
+.tournament-fields label { display: grid; gap: 4px; color: var(--muted); }
+.tournament-fields select, #tournament-teams select { min-width: 0; }
+.tournament-fighter { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 5px; align-items: center; }
+#tournament-teams .versus-lineup { margin-top: 6px; }
+#tournament-teams section[hidden] { display: none; }
+.versus-field .versus-hidden-spectator {
+  color: var(--accent); background: none; border: 1px dashed var(--accent);
+}
+@media (max-width: 710px) {
+  .versus-squads { grid-template-columns: minmax(0, 1fr); }
+  .versus-bracket, .tournament-fields { grid-template-columns: minmax(0, 1fr); }
+}
 .settings-menu {
   position: absolute; right: 0; top: calc(100% + 6px); z-index: 50; width: 260px;
   display: flex; flex-direction: column; gap: 10px; padding: 12px;

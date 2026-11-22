@@ -1,5 +1,6 @@
 """Edit the generated view of a project while retaining its ungenerated source."""
 import struct
+import battle_encounters
 
 from ai_choices_data import rebuild_pakd
 from project_merge_formats import BATTLE, MENU, TABLES, fields, pure_rows, table_tail
@@ -9,12 +10,13 @@ from tools.menu_mods.compiler.tor_formats import DatArchive, Pakd, Xlce
 
 
 SETTINGS = ('rougesReborn', 'throwReborn', 'proficiencyII', 'specialClassChange',
-            'aiChoices', 'dorgaluaXLFix')
+            'aiChoices', 'dorgaluaXLFix', *battle_encounters.FIGHTS)
 KEY = 'integratedContentEdits'
 
 
 def preview_path(path):
-    return (path in (BATTLE, MENU) or path.startswith(('localize/LocalizeText_', 'menu/texture_x4/')))
+    return (path in (BATTLE, MENU) or path.startswith(('localize/LocalizeText_', 'menu/texture_x4/'))
+            or battle_encounters.preview_path(path))
 
 
 def archive_parts(data):

@@ -470,7 +470,6 @@ static int hook_trap_edges(void *context,uint32_t xy,int height,int destination)
 }
 #include "trap_floor_marker.h"
 static void trap_bind_native(void){
-    trap_floor_bind();
     trap_native_manager=base+0xd6ab80;trap_native_battle=trap_active_battle;
     trap_native_width=(TrapDimensionFn)(base+0x2dc3a0);trap_native_height=(TrapDimensionFn)(base+0x2dc3b0);
     trap_native_floor=(TrapHeightFn)(base+0x2dc3e0);trap_native_object=(TrapObjectFn)(base+0x361c40);

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Versus Match Queue</title>
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body class="versus-companion">
+  <header class="topbar">
+    <div class="brand"><span class="brand-name">Versus Match Queue</span></div>
+    <a href="/" class="versus-queue-link">Open editor</a>
+  </header>
+  <main class="versus-queue">
+    <section class="versus-tournament">
+      <header class="versus-tournament-head">
+        <h2>Tournaments</h2>
+        <select id="tournament-picker" aria-label="Saved tournament" hidden></select>
+      </header>
+      <p id="tournament-status" aria-live="polite"></p>
+      <div id="tournament-bracket" class="versus-bracket"></div>
+      <div id="tournament-controls" class="versus-queue-actions" hidden>
+        <button id="tournament-next" type="button" class="primary" hidden>Queue next tournament fight</button>
+        <label><input id="tournament-auto" type="checkbox"> Auto advance</label>
+        <label><input id="tournament-launch" type="checkbox"> Auto start next fight</label>
+          <label title="Draw from the Versus arena list each time a fight is queued"><input id="tournament-random-arena" type="checkbox"> Random arena</label>
+        <button id="tournament-restart" type="button" class="ghost">Restart tournament</button>
+      </div>
+      <details id="tournament-result" hidden>
+        <summary>Record a result manually</summary>
+        <label>Result <select id="tournament-result-winner"></select></label>
+        <button id="tournament-result-save" type="button">Record result</button>
+      </details>
+      <details id="tournament-ai" hidden>
+        <summary>Edit team AI</summary>
+        <label>Team <select id="tournament-ai-team"></select></label>
+        <div id="tournament-ai-lineup" class="versus-lineup"></div>
+        <button id="tournament-ai-save" type="button" disabled>Save AI assignments</button>
+        <p id="tournament-ai-status" aria-live="polite"></p>
+      </details>
+      <details id="tournament-setup">
+        <summary>Set up a tournament</summary>
+        <form id="tournament-form">
+          <fieldset>
+            <div class="tournament-fields">
+              <label>Tournament name <input id="tournament-name" required maxlength="72" value="Versus tournament"></label>
+              <label>Teams <select id="tournament-team-count"><option value="4">4 teams</option><option value="8">8 teams</option></select></label>
+              <label>Battle size <select id="tournament-size"><option value="3">3 vs 3</option><option value="6">6 vs 6</option><option value="12" selected>12 vs 12</option><option value="24">24 vs 24</option><option value="30">30 vs 30</option></select></label>
+              <label>Arena <select id="tournament-map" required></select></label>
+              <label>Save profile <select id="tournament-profile"></select></label>
+              <label>Split one save into teams <select id="tournament-source"></select></label>
+              <button id="tournament-split" type="button">Fill all four teams</button>
+              <button id="tournament-random-teams" type="button" disabled>Assign random teams</button>
+            </div>
+            <div id="tournament-teams" class="versus-squads"></div>
+            <div class="versus-queue-actions">
+              <label><input type="checkbox" id="tournament-omit"> Leave snapshot weapons unequipped</label>
+              <button id="tournament-save" type="submit" class="primary" disabled>Save bracket</button>
+            </div>
+            <p id="tournament-draft-status" aria-live="polite"></p>
+          </fieldset>
+        </form>
+      </details>
+    </section>
+    <h2>Single fights</h2>
+    <p id="queue-summary" role="status" aria-live="polite">Loading saved fights…</p>
+    <div class="versus-queue-actions">
+      <button id="queue-next" type="button" class="primary" disabled>Queue next unplayed</button>
+      <button id="queue-clear" type="button" class="ghost" disabled>Clear queued fight</button>
+    </div>
+    <ol id="queue-matches" class="versus-match-list" aria-label="Saved fights"></ol>
+  </main>
+  <script type="module" src="js/app/versus-queue.js"></script>
+</body>
+</html>

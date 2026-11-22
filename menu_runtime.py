@@ -10,6 +10,8 @@ import starting_status_settings as statuses
 import modprep_spellsets
 import modprep_equipperms
 import enemy_equipment_overrides as equipment_overrides
+import battle_encounters
+import versus
 
 BUG_FIX_SECTIONS={'offhandDamageFix': 'OffhandDamageFix', 'armorResistanceFix': 'ArmorResistanceFix',
                   'dorgaluaXLFix': 'DorgaluaXLFix'}
@@ -17,7 +19,11 @@ BUG_FIX_SECTIONS={'offhandDamageFix': 'OffhandDamageFix', 'armorResistanceFix': 
 FIELDS=('fastForward','chariot','autoBattle','unionLevel','skipChapterVideos','aiStatus','aiStatusAll','aiChoices','aiEnemyMpRecovery','aiDefaultBuffWeight','aiDefaultHealingWeights',*BUG_FIX_SECTIONS,'modPreparation','equipmentSetBonuses','equipmentSetFreeSkills','specialClassChange','advancedBeastFamilies','genericSpecialRecruitment',*weapon_mods.KEYS,'enemyArcherRange','battleLevelSync','disableBuffCardSpawns','enemyLevelScaling','levelCap99','pspSpellRuntime','enemyFinishers','enemyProficiency40','enemyProficiencyLevel','enemyRandomSkills','enemyRandomSpells','enemyRandomEquipment','enemyAutoGear','enemyAutoRareGear','enemyAutoAccessories','enemyAutoMovement','enemyForceCrestOfFire','enemyAutoHeavenlyWeapons')
 # switches added after settings were first saved: missing ones read as off
 LATER_FIELDS=('aiStatus','aiStatusAll','aiChoices','aiEnemyMpRecovery','aiDefaultBuffWeight','aiDefaultHealingWeights',*BUG_FIX_SECTIONS,'modPreparation','equipmentSetBonuses','equipmentSetFreeSkills','specialClassChange','advancedBeastFamilies','genericSpecialRecruitment',*weapon_mods.KEYS,'enemyArcherRange','battleLevelSync','disableBuffCardSpawns','enemyLevelScaling','levelCap99','pspSpellRuntime','enemyFinishers','enemyProficiency40','enemyProficiencyLevel','enemyRandomSkills','enemyRandomSpells','enemyRandomEquipment','enemyAutoGear','enemyAutoRareGear','enemyAutoAccessories','enemyAutoMovement','enemyForceCrestOfFire','enemyAutoHeavenlyWeapons')
-FILES=('dinput8.dll','menu-mods.ini',*class_change.SIDECARS,*weapon_mods.ROGUE_FILES,modprep_sets.FILE,modprep_equipperms.FILE,dorgalua_xl.SIDECAR)
+FIELDS+=battle_encounters.OPTIONS
+LATER_FIELDS+=(*battle_encounters.OPTIONS,versus.MOD_KEY)
+FIELDS+=(versus.MOD_KEY,)
+PILOT_MARKER='battle-capacity-pilot.ini'
+FILES=('dinput8.dll','menu-mods.ini',*class_change.SIDECARS,*weapon_mods.ROGUE_FILES,modprep_sets.FILE,modprep_equipperms.FILE,dorgalua_xl.SIDECAR,PILOT_MARKER)
 CARD_SETTINGS={'enemyStartingCards':'EnemyStartingCards','playerStartingCards':'PlayerStartingCards'}
 CARD_IDS={0,1,2,3,13,15}
 LABELS={'fastForward':'Five-speed fast-forward','chariot':'Early Chariot','autoBattle':'Early Auto Battle','unionLevel':'Remove story level cap','skipChapterVideos':'Skip chapter videos','aiStatus':'AI status scoring: new AI behaviours (113 and up)','aiStatusAll':'AI status scoring: every AI, original included','aiChoices':'Buff / Debuff Auto Battle buttons'}
@@ -47,6 +53,8 @@ LABELS['enemyLevelScaling']='Scale enemy levels to your party'
 LABELS['enemyArcherRange']='Enemy archers use downhill range'
 LABELS['disableBuffCardSpawns']='Disable battlefield card spawns'
 LABELS['battleLevelSync']='Disable battle level sync'
+LABELS.update(expandedBattleLimit='62-unit battle limit',finalShowdown='The Final Showdown',walkingDead='The Walking Dead')
+LABELS[versus.MOD_KEY]='Versus Mode'
 def settings(value=None):
  if isinstance(value,dict) and value.get('equipmentSetFreeSkills') is True and 'equipmentSetBonuses' not in value:
   value={**value,'equipmentSetBonuses':True}
@@ -73,6 +81,7 @@ def settings(value=None):
  if value['specialClassChange'] and not value['modPreparation']:raise ValueError('Special Class Change requires Mod Preparation')
  if value['advancedBeastFamilies'] and not value['specialClassChange']:raise ValueError('Advanced beast families require Special Class Change')
  if value['genericSpecialRecruitment'] and not value['specialClassChange']:raise ValueError('Generic special recruitment requires Special Class Change')
+ if any(value[k] for k in battle_encounters.FIGHTS):value[battle_encounters.KEY]=True
  return {'version':1,**{k:value[k]for k in FIELDS},**{k:list(value[k])for k in CARD_SETTINGS},'formationLimit':value['formationLimit'],'trapAiProfile':value['trapAiProfile'],'enemyLevelOffset':value['enemyLevelOffset'],'enemyEquipmentOverrides':equipment_overrides.settings(value['enemyEquipmentOverrides']),'enemyItemPool':value['enemyItemPool'],**statuses.settings(value)}
 
 def cards_active(value):
@@ -95,7 +104,8 @@ def project_settings(meta):
  if (isinstance(value,dict) and 'equipmentSetBonuses' not in value
      and value.get('modPreparation') is True and editor.get('communityEquipmentSets')):
   value={**value,'equipmentSetBonuses':True}
- return settings(value)
+ if value is not None and not isinstance(value,dict):return settings(value)
+ return settings({**(settings() if value is None else value),versus.MOD_KEY:versus.enabled_in(meta)})
 def selected(config,name=None):
  if name:return project_settings(config.project(name))
  return settings((config.state().get('menuRuntime')or{}).get('settings'))
@@ -144,16 +154,19 @@ def ini(value):
   + (f"\r\n[EnemyItems]\r\nPool={v['enemyItemPool']}\r\n" if v['enemyItemPool'] else '')
   + ('\r\n[AIMPRecovery]\r\nEnabled=1\r\n' if v['aiEnemyMpRecovery'] else '')
   + "".join(f"\r\n[{section}]\r\nEnabled={int(v[key])}\r\n" for key,section in BUG_FIX_SECTIONS.items())
+  + ('\r\n[BattleCapacity]\r\nEnabled=1\r\n' if v[battle_encounters.KEY] else '')
   + starting_card_ini(v)+statuses.ini(v)).encode('ascii')
 
 def select_loader(value,executable_hash,sets=False):
  root=Path(__file__).resolve().parent/'tools/menu_mods'
  manifest=bundle()
+ if value[battle_encounters.KEY] and executable_hash!=battle_encounters.STEAM_HASH:
+  raise ValueError('The expanded battle limit and its encounters require Steam 1.0.8.0')
  if executable_hash!=manifest['executableSHA256']:
   profile=manifest.get('compatibleExecutables',{}).get(executable_hash)
   if profile is None:
    raise ValueError('This menu mod does not support the selected game executable version')
-  requested={key:LABELS[key] for key in FIELDS if value[key] and key!='modPreparation'}
+  requested={key:LABELS[key] for key in FIELDS if value[key] and key not in ('modPreparation',versus.MOD_KEY)}
   if value['enemyItemPool']:requested['enemyItemPool']=LABELS['enemyItemPool']
   if value['enemyEquipmentOverrides']:requested['enemyEquipmentOverrides']=LABELS['enemyEquipmentOverrides']
   if value['formationLimit']:requested['formationLimit']='Formation limit'
@@ -190,8 +203,26 @@ def assert_game_closed(config):
 def custom_icon_ini(enabled):
  return b'\r\n[CustomIcons]\r\nEnabled=1\r\n' if enabled else b''
 
+def battle_capacity_supported(config):
+ exe=game_root(config)/'Tactics Ogre Reborn.exe'
+ return exe.is_file() and sha(exe.read_bytes())==battle_encounters.STEAM_HASH
+
+def battle_pilot_applied(config,applied):
+ # The two local prototypes predate runtime receipts. Match the exact DLL,
+ # marker and applied project before allowing an integrated Apply to replace it.
+ prototypes={
+  'The Final Showdown - 62 Units Replay':'672e16f64e136ce056a3dd33382893d37387cab6009d5234017f2411ea7fdc92',
+  'The Walking Dead':'b49db5f22b57c63b79f9ebb735bb167bf1fbdef4a8770aa4ae292a4b34de88c6',
+ }
+ expected=prototypes.get(applied.get('name'))
+ if not expected:return False
+ marker,dll=(runtime_path(config,key) for key in (PILOT_MARKER,'dinput8.dll'))
+ return (marker.is_file() and marker.read_bytes()==b'[FinalShowdown]\r\nStage=176\r\nCapacity=62\r\n'
+         and dll.is_file() and sha(dll.read_bytes())==expected)
+
 def prepare(config,value,project=None,class_payload=None,custom_icons=False,read=None):
  v=settings(value)
+ if v[battle_encounters.KEY] and not project:raise ValueError('Open a project to use the expanded battle limit')
  if v['dorgaluaXLFix'] and not project:raise ValueError('Open a project to use the XL Dorgalua fix')
  if v['pspSpellRuntime'] and not project:raise ValueError('Open a project to use the PSP spell status fixes')
  if not project and any(v[k] for k in ENEMY_LOADOUT_FIELDS):raise ValueError('Open a project to use the enemy loadout options')
@@ -207,17 +238,25 @@ def prepare(config,value,project=None,class_payload=None,custom_icons=False,read
  if cards_active(v) and not project:raise ValueError('Open a project to configure starting cards')
  if v['specialClassChange'] and not class_payload:raise ValueError('Special Class Change is built when you preview Apply project or export')
  meta=config.project(project) if project else {}
+ if v[versus.MOD_KEY] and not project:raise ValueError('Open a project to use Versus')
  sets=modprep_sets.runtime(meta,v['equipmentSetBonuses'],v['equipmentSetFreeSkills'])
  permissions=modprep_equipperms.runtime(meta,v['modPreparation'])
  advanced=bool(sets or permissions)
+ pilot=versus.enabled_in(meta)
+ v[versus.MOD_KEY]=pilot
+ owned=config.state().get('menuRuntime')or{}
+ queue_key=sha(json.dumps(meta,sort_keys=True,separators=(',',':')).encode('utf-8'))[:16] if pilot else None
+ if pilot and v['formationLimit'] not in (0,1):raise ValueError('Versus needs one spectator slot. Set Formation Limit to one or disable it.')
  sections=modprep_sets.ini(sets,v['equipmentSetFreeSkills'])+modprep_equipperms.ini(permissions)
  sections+=custom_icon_ini(custom_icons)
- active=custom_icons or advanced or any(v[k]for k in FIELDS if k not in ('modPreparation','equipmentSetBonuses','advancedBeastFamilies')) or cards_active(v) or statuses.active(v) or v['formationLimit']>0 or bool(v['enemyItemPool'] or v['enemyEquipmentOverrides']);owned=config.state().get('menuRuntime')or{};recorded=owned.get('files',{})
+ active=pilot or custom_icons or advanced or any(v[k]for k in FIELDS if k not in ('modPreparation','equipmentSetBonuses','advancedBeastFamilies')) or cards_active(v) or statuses.active(v) or v['formationLimit']>0 or bool(v['enemyItemPool'] or v['enemyEquipmentOverrides']);recorded=owned.get('files',{})
  if not isinstance(recorded,dict)or any(k not in FILES for k in recorded):raise ValueError('Invalid installed menu runtime receipt')
  manifest=bundle();current={n:runtime_path(config,n).read_bytes()if runtime_path(config,n).exists()else None for n in FILES}
  # an earlier bundled build the editor installed itself may be replaced by this one
  compatible_hashes=tuple(profile['dllSHA256'] for profile in (*manifest.get('compatibleExecutables',{}).values(),*manifest.get('pspLegacyLoaders',{}).values()))
  if recorded and recorded.get('dinput8.dll') not in (manifest['dllSHA256'],*compatible_hashes,class_change.recipe()['dllSHA256'],*weapon_mods.loader_hashes(),*manifest.get('replaces',[])):raise ValueError('The installed menu loader belongs to another version/mod; it has been preserved')
+ if not recorded and project and v[battle_encounters.KEY] and battle_pilot_applied(config,config.state().get('applied') or {}):
+  recorded={key:sha(current[key]) for key in ('dinput8.dll',PILOT_MARKER)}
  for name,expected in recorded.items():
   if current[name]is not None and sha(current[name])!=expected:raise ValueError(name+' was changed outside the editor. It has been preserved.')
  desired={n:None for n in FILES}
@@ -225,6 +264,8 @@ def prepare(config,value,project=None,class_payload=None,custom_icons=False,read
   exe=game_root(config)/'Tactics Ogre Reborn.exe'
   if not exe.is_file():raise ValueError('The selected game folder is missing Tactics Ogre Reborn.exe')
   executable_hash=sha(exe.read_bytes())
+  if pilot:
+   sections+=versus.pilot_ini(meta,executable_hash==battle_encounters.STEAM_HASH,v[battle_encounters.KEY],queue_key)
  if active and not class_payload:
   desired.update({'dinput8.dll':select_loader(v,executable_hash,advanced),'menu-mods.ini':ini(v)+sections})
  if class_payload:
@@ -246,6 +287,7 @@ def prepare(config,value,project=None,class_payload=None,custom_icons=False,read
   if desired[name] is None and name not in recorded:continue
   if current[name]!=desired[name]:entries.append({'name':name,'before':current[name],'after':desired[name]})
  receipt={'version':1,'project':project,'settings':v,'files':{n:sha(d)for n,d in desired.items()if d is not None}}if active else None
+ if pilot:receipt.update(versusQueue=queue_key,versusRelics=True,versusNames=True,versusStats=True,versusAutoLaunch=True,versusSmallTeams=True,versusMaxTeamSize=max(versus.TEAM_SIZES))
  return {'entries':entries,'receipt':receipt,'settings':v,'public':{'changed':[e['name']for e in entries],'enabled':enabled_labels(v),'requiresRestart':bool(entries)}}
 def snapshot_restore(config,plan,atomic):
  for e in plan['entries']:
@@ -293,6 +335,7 @@ def info(config):
  icons=class_change.menu_class_icons(menu)
  class_ids=[int(klass) for klass in icons if int(klass)>=80]
  return {'version':1,'project':name,'settings':value,'installed':bool(owned),'installedSettings':settings(owned.get('settings')),'available':available,'error':error,'plan':public,
+         'versusLegacy':bool((pilot:=editor.get(versus.PILOT_KEY)) and not pilot.get('queueOnly')),
          'capacityPlan':modprep_groups.PLAN,'itemPool':class_change.item_pool(class_change.recipe()),
          'communityClassGroups':groups,'additionalClassChoices':class_ids,'communityEquipmentSets':sets,
          'builtinClassGroups':class_change.group_catalog(value['advancedBeastFamilies']) if value['specialClassChange'] else [],
@@ -302,9 +345,27 @@ def info(config):
          'communitySpellSets':spell_sets,'spellSetSlots':{'first':modprep_spellsets.FIRST,'limit':modprep_spellsets.LIMIT},
          'communitySkillSets':skill_sets,'skillSetSlots':{'first':modprep_spellsets.FIRST,'limit':modprep_spellsets.SKILL_LIMIT},
          'communityEquipmentPermissions':permissions,'equipmentPermissionSlots':{'first':modprep_equipperms.FIRST,'limit':modprep_equipperms.LIMIT}}
+def validate_versus(config,name,value,meta):
+ if value[versus.MOD_KEY]:
+  if not name:raise ValueError('Open a project to use Versus')
+  if not battle_capacity_supported(config):raise ValueError('Versus requires Steam 1.0.8.0')
+  if value['formationLimit'] not in (0,1):raise ValueError('Versus needs one spectator slot. Set Formation Limit to one or disable it.')
+ else:
+  legacy=meta.get('editor',{}).get(versus.PILOT_KEY)
+  if legacy and not legacy.get('queueOnly'):
+   raise ValueError('This project contains a built-in Training fight. Use a separate project for regular Training.')
+
 def save(config,body,atomic):
  if not isinstance(body,dict)or 'settings'not in body or body.get('project')!=config.open_project()or body.get('dataRoot')!=str(config.data_root):raise ValueError('Game/project changed or settings are missing; reload before saving menu settings')
  value=settings(body.get('settings'));name=config.open_project()
+ meta=config.project(name) if name else {}
+ if name and versus.MOD_KEY not in body['settings']:value[versus.MOD_KEY]=versus.enabled_in(meta)
+ if name and body.get('keepSavedExpandedBattleLimit') is True:
+  value[battle_encounters.KEY]=project_settings(meta)[battle_encounters.KEY] or any(value[k] for k in battle_encounters.FIGHTS)
+ validate_versus(config,name,value,meta)
+ if value[battle_encounters.KEY]:
+  if not name:raise ValueError('Open a project to use the expanded battle limit')
+  if not battle_capacity_supported(config):raise ValueError('The expanded battle limit and its encounters require Steam 1.0.8.0')
  if value['dorgaluaXLFix'] and not name:raise ValueError('Open a project to use the XL Dorgalua fix')
  if value['pspSpellRuntime'] and not name:raise ValueError('Open a project to use the PSP spell status fixes')
  if not name and any(value[k] for k in ENEMY_LOADOUT_FIELDS):raise ValueError('Open a project to use the enemy loadout options')
@@ -315,7 +376,7 @@ def save(config,body,atomic):
  if value['equipmentSetBonuses']and not name:raise ValueError('Open a project to use Equipment Set Bonuses')
  if value['modPreparation']and not name:raise ValueError('Open a project to use Mod Preparation')
  if name:
-  meta=config.project(name);editor=meta.setdefault('editor',{})
+  editor=meta.setdefault('editor',{})
   editor['menuMods']=value
   if 'communityClassGroups' in body:editor['communityClassGroups']=modprep_groups.settings(body['communityClassGroups'])
   if modprep_groups.OVERRIDES in body:editor[modprep_groups.OVERRIDES]=modprep_groups.override_settings(body[modprep_groups.OVERRIDES])
@@ -323,11 +384,11 @@ def save(config,body,atomic):
   if 'communitySpellSets' in body:editor['communitySpellSets']=modprep_spellsets.settings(body['communitySpellSets'])
   if 'communitySkillSets' in body:editor['communitySkillSets']=modprep_spellsets.settings(body['communitySkillSets'],'skill')
   if 'communityEquipmentPermissions' in body:editor['communityEquipmentPermissions']=modprep_equipperms.settings(body['communityEquipmentPermissions'])
-  config.save_project(name,meta);return {'saved':True,'project':name,'gameChanged':False}
+  config.save_project(name,meta);return {'saved':True,'project':name,'gameChanged':False,'expandedBattleLimit':value[battle_encounters.KEY]}
  if any(k in body for k in (modprep_groups.OVERRIDES,'communityClassGroups','communityEquipmentSets','communitySpellSets','communitySkillSets','communityEquipmentPermissions')):raise ValueError('Open a project to save class groups and sets')
  installed=settings((config.state().get('menuRuntime')or{}).get('settings'))
  runtime_files=(config.state().get('menuRuntime')or{}).get('files',{})
- if any(installed[k] for k in ENEMY_LOADOUT_FIELDS) or installed['pspSpellRuntime'] or installed['specialClassChange'] or installed['dorgaluaXLFix'] or weapon_mods.active(installed) or installed['enemyArcherRange'] or installed['enemyLevelScaling'] or installed['levelCap99'] or cards_active(installed) or statuses.active(installed) or any(name in runtime_files for name in (modprep_sets.FILE,modprep_equipperms.FILE)):
+ if (config.state().get('menuRuntime') or {}).get('versusQueue') or any(installed[k] for k in ENEMY_LOADOUT_FIELDS) or installed[battle_encounters.KEY] or installed['pspSpellRuntime'] or installed['specialClassChange'] or installed['dorgaluaXLFix'] or weapon_mods.active(installed) or installed['enemyArcherRange'] or installed['enemyLevelScaling'] or installed['levelCap99'] or cards_active(installed) or statuses.active(installed) or any(name in runtime_files for name in (modprep_sets.FILE,modprep_equipperms.FILE)):
   raise ValueError('Open the applied project to change its runtime options')
  plan=prepare(config,value);state=config.state();receipt,changed=deploy(config,plan,atomic)
  try:

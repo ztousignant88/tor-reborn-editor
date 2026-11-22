@@ -20,7 +20,9 @@ def inputs(profile):
     if profile == 'steam':
         expansion = source / 'expansion'
         sources += [source / 'rogue/steal_runtime.c', source / 'equip/equip_runtime.c',
-                    source / 'throw/throw_reborn.c', *sorted(expansion.glob('*.c'))]
+                    source / 'throw/throw_reborn.c', *sorted(expansion.glob('*.c')),
+                    source / 'battle_capacity/steam_battle_pilot_install.c',
+                    source / 'modules/versus_round_card.c']
         return [expansion], sources
     legacy = ROOT / 'legacy'
     shared = legacy / 'build/shared-inventory'
@@ -51,10 +53,13 @@ def main():
         profile = profiles[name]
         includes, sources = inputs(name)
         dll = out / profile['loader']
+        libraries = ['-luser32', '-lbcrypt']
+        if name == 'steam':
+            libraries.append('-lgdi32')
         subprocess.run([args.zig, 'cc', '-target', 'x86_64-windows-gnu', '-O2',
                         '-Wall', '-Wextra', '-Werror', '-shared',
                         *(f'-I{path}' for path in includes), *map(str, sources),
-                        '-luser32', '-lbcrypt', '-o', str(dll)], check=True)
+                        *libraries, '-o', str(dll)], check=True)
         replacements[name] = dll
         print(dll)
     if args.install:

@@ -7,6 +7,11 @@ const startingCards=[
  [0,'None'],[1,'Physical Attack'],[2,'Magic Attack'],[3,'Critical Rate'],[13,'MP Recovery'],[15,'Auto Skill'],
 ].map(([id,name])=>({id,name,art:id?()=>startingCardArt(id):undefined}));
 const emptyCards=()=>[0,0,0,0];
+const expandedBattleOptions=[
+ ['expandedBattleLimit','Expanded Battle Limit (62 units)','Raises the battle limit from 30 to 62 slots, including player deployment, allies and enemies. The Battles editor uses the larger limit. Battle Suspend is disabled in battles using the extra slots.'],
+ ['finalShowdown','The Final Showdown','Adds a replayable fight east of Phorampa with 50 bosses and 12 deployment slots.'],
+ ['walkingDead','The Walking Dead','Adds a replayable fight west of Phorampa. Human Nybeth leads 50 enemies, including the undead versions of Leonar, Gildas, Xaebos, Hektor, Cassandra and Moldova.'],
+];
 const options=[
  ['disableBuffCardSpawns','Disable battlefield card spawns','Stops recurring battlefield card spawns and cards from destroyed objects. Scripted cards and starting cards still apply. Restart and enter a fresh battle.'],
  ['aiChoices','Buff / Debuff Auto Battle buttons','Adds a cyan Buff button (AI 113) and a purple Debuff button (AI 114) to Auto Battle. Adds either profile if it is missing and keeps existing profile edits.'],
@@ -68,7 +73,7 @@ const enemyItemCategories = [
 const empty=()=>({version:1,disableBuffCardSpawns:false,fastForward:false,chariot:false,autoBattle:false,unionLevel:false,battleLevelSync:false,formationLimit:0,trapAiProfile:0,skipChapterVideos:false,aiStatus:false,aiStatusAll:false,aiChoices:false,aiEnemyMpRecovery:false,aiDefaultBuffWeight:false,aiDefaultHealingWeights:false,offhandDamageFix:false,armorResistanceFix:false,dorgaluaXLFix:false,modPreparation:false,equipmentSetBonuses:false,equipmentSetFreeSkills:false,specialClassChange:false,advancedBeastFamilies:false,genericSpecialRecruitment:false,proficiencyII:false,throwReborn:false,rougesReborn:false,pspSpellRuntime:false,enemyArcherRange:false,enemyLevelScaling:false,enemyFinishers:false,enemyProficiency40:false,enemyProficiencyLevel:false,enemyRandomSkills:false,enemyRandomSpells:false,enemyRandomEquipment:false,enemyAutoGear:false,enemyAutoRareGear:false,enemyAutoHeavenlyWeapons:false,enemyAutoAccessories:false,enemyAutoMovement:false,enemyForceCrestOfFire:false,enemyEquipmentOverrides:{},enemyItemPool:0,enemyLevelOffset:1,levelCap99:false});
 export class MenuMods{
  constructor(info,saved){
-  this.info=info;this.saved=saved;this.value={...empty(),...startingStatusDefaults(),...saved?.settings};this.original=JSON.stringify(this.value);
+  this.info=info;this.saved=saved;this.value={...empty(),versusEnabled:false,...Object.fromEntries(expandedBattleOptions.map(([key])=>[key,false])),...startingStatusDefaults(),...saved?.settings};this.original=JSON.stringify(this.value);
   this.communityGroups=structuredClone(saved?.communityClassGroups??[]);
   this.originalGroups=JSON.stringify(this.communityGroups);
   this.builtinClassGroupOverrides=structuredClone(saved?.builtinClassGroupOverrides??{});
@@ -85,6 +90,7 @@ export class MenuMods{
  static async load(info){try{return new MenuMods(info,info.menuModsVersion?await source.menuMods():null);}catch(e){return new MenuMods(info,{error:e.message});}}
  setScope(info){this.info=info;}
  get supported(){return !!this.info.menuModsVersion;}
+ get savedVersusEnabled(){return !!JSON.parse(this.original).versusEnabled;}
  get groupsDirty(){return JSON.stringify(this.communityGroups)!==this.originalGroups;}
  get builtinGroupsDirty(){return JSON.stringify(this.builtinClassGroupOverrides)!==JSON.stringify(this.savedBuiltinClassGroupOverrides);}
  get setsDirty(){return JSON.stringify(this.equipmentSets)!==this.originalSets;}
@@ -94,7 +100,7 @@ export class MenuMods{
  get dirty(){return JSON.stringify(this.value)!==this.original||this.groupsDirty||this.builtinGroupsDirty||this.setsDirty||this.spellSetsDirty||this.skillSetsDirty||this.equipmentPermissionsDirty;}
  get contentChanged(){
   const saved=JSON.parse(this.original);
-  return ['rougesReborn','throwReborn','proficiencyII','specialClassChange','advancedBeastFamilies','genericSpecialRecruitment','aiChoices','pspSpellRuntime','dorgaluaXLFix']
+  return ['rougesReborn','throwReborn','proficiencyII','specialClassChange','advancedBeastFamilies','genericSpecialRecruitment','aiChoices','pspSpellRuntime','dorgaluaXLFix',...expandedBattleOptions.map(([key])=>key)]
    .some(key=>!!this.value[key]!==!!saved[key]);
  }
  get enabled(){return !!this.value.formationLimit||options.some(([k])=>this.value[k]);}
@@ -105,10 +111,17 @@ export class MenuMods{
   }
  }
  enabledIn(scope){return scopedOptions(scope).some(([k])=>this.value[k]);}
- dirtyIn(scope){const saved=JSON.parse(this.original);return scopedOptions(scope).some(([k])=>!!this.value[k]!==!!saved[k]);}
+ dirtyIn(scope){const saved=JSON.parse(this.original);return scope==='versus'?this.value.versusEnabled!==saved.versusEnabled:scopedOptions(scope).some(([k])=>!!this.value[k]!==!!saved[k]);}
  statusEnabled(hardMode){return startingStatusesEnabled(this.value,hardMode);}
  statusChanged(hardMode){return startingStatusesChanged(this.value,JSON.parse(this.original),hardMode);}
  get enemyLevelsChanged(){const saved=JSON.parse(this.original);return !!this.value.enemyLevelScaling!==!!saved.enemyLevelScaling||this.value.enemyLevelOffset!==saved.enemyLevelOffset;}
+ get expandedBattlesEnabled(){return expandedBattleOptions.some(([key])=>this.value[key]);}
+ get expandedBattlesChanged(){const saved=JSON.parse(this.original);return expandedBattleOptions.some(([key])=>this.value[key]!==saved[key]);}
+ syncBattleExpansion(enabled){
+  const saved=JSON.parse(this.original);
+  if(this.value.expandedBattleLimit===saved.expandedBattleLimit)this.value.expandedBattleLimit=enabled;
+  this.original=JSON.stringify({...saved,expandedBattleLimit:enabled});
+ }
  get enemyLoadoutsEnabled(){return !!this.value.enemyItemPool||!!proficiencyMode(this.value)||Object.keys(this.value.enemyEquipmentOverrides).length>0||[...enemyLoadoutOptions,...enemyEquipmentOptions].some(([key])=>this.value[key]);}
  get enemyLoadoutsChanged(){
   const saved=JSON.parse(this.original);
@@ -132,7 +145,11 @@ export class MenuMods{
   if ((this.info.hardModeVersion??0)<7) delete settings.enemyForceCrestOfFire;
   if ((this.info.hardModeVersion??0)<8) delete settings.enemyEquipmentOverrides;
   if ((this.info.hardModeVersion??0)<9) delete settings.enemyAutoHeavenlyWeapons;
-  await source.saveMenuMods(this.info,settings,{
+  if ((this.info.hardModeVersion??0)<10) for (const [key] of expandedBattleOptions) delete settings[key];
+  if (!this.info.versusModsVersion) delete settings.versusEnabled;
+  const savedBattleLimit=JSON.parse(this.original).expandedBattleLimit;
+  const saved=await source.saveMenuMods(this.info,settings,{
+   keepSavedExpandedBattleLimit:this.info.versusModsVersion&&settings.expandedBattleLimit===savedBattleLimit,
    communityClassGroups:this.groupsDirty?JSON.parse(groups):undefined,
    builtinClassGroupOverrides:this.builtinGroupsDirty?builtinOverrides:undefined,
    communityEquipmentSets:this.setsDirty?JSON.parse(sets):undefined,
@@ -141,6 +158,7 @@ export class MenuMods{
    communityEquipmentPermissions:this.equipmentPermissionsDirty?equipmentPermissions:undefined,
   });
   this.original=value;this.originalGroups=groups;this.originalSets=sets;
+  if (typeof saved.expandedBattleLimit==='boolean') this.syncBattleExpansion(saved.expandedBattleLimit);
   this.savedBuiltinClassGroupOverrides=builtinOverrides;
   this.savedSpellSets=spellSets;this.savedSkillSets=skillSets;this.savedEquipmentPermissions=equipmentPermissions;return true;
  }
@@ -207,6 +225,8 @@ export class MenuMods{
  renderHardMode(detail,onChange,ed){
   const supported=!!this.info.hardModeVersion&&!!this.info.project;
   const disabled=!supported||ed.ctx.readOnly?.();
+  const expandedDisabled=disabled||!this.info.expandedBattlesSupported;
+  const expandedControl=([key,title,help])=>`<label class="menu-mod-option"><input type="checkbox" data-expanded-battle="${key}" ${this.value[key]?'checked':''} ${expandedDisabled?'disabled':''}><span><b>${title}</b><small>${help}</small></span></label>`;
   const loadoutControls=options=>options.filter(([, , , version=2])=>this.info.hardModeVersion>=version).map(([key,title,help])=>`<label class="menu-mod-option"><input type="checkbox" data-enemy-loadout="${key}" ${this.value[key]?'checked':''} ${disabled?'disabled':''}><span><b>${title}</b><small>${help}</small></span></label>`).join('');
   detail.innerHTML=`<div class="data-head"><div><h1>Hard Mode</h1><p class="muted">Integrated mods · Project settings</p></div></div>
    ${supported?'':'<p class="hint">Open a project in the updated editor to configure Hard Mode.</p>'}
@@ -236,10 +256,26 @@ export class MenuMods{
    </section>`:''}
    <section data-starting-cards></section>
    <section data-starting-status></section>
+   ${this.info.hardModeVersion>=10?`<section><h2>Large battles</h2>
+    ${!this.info.expandedBattlesSupported?'<p class="hint">These options require Steam 1.0.8.0.</p>':''}
+    ${expandedControl(expandedBattleOptions[0])}
+    <h3>Overworld encounters</h3>
+    <p class="hint">Both roads open with Tynemouth Hill. Enabling either fight also enables the 62-unit limit.</p>
+    ${expandedBattleOptions.slice(1).map(expandedControl).join('')}
+   </section>`:''}
    <p class="hint">Save the project, then use Apply Project. The settings take effect the next time the game launches. Start a fresh battle to see new cards and loadouts.</p>`;
   detail.querySelector('[data-archer-range]').onchange=event=>{
    if(disabled)return;
    this.value.enemyArcherRange=event.target.checked;
+   onChange();
+  };
+  const expandedControls=[...detail.querySelectorAll('[data-expanded-battle]')];
+  for(const control of expandedControls)control.onchange=()=>{
+   const key=control.dataset.expandedBattle;
+   this.value[key]=control.checked;
+   if(control.checked)this.value.expandedBattleLimit=true;
+   else if(key==='expandedBattleLimit')this.value.finalShowdown=this.value.walkingDead=false;
+   for(const input of expandedControls)input.checked=this.value[input.dataset.expandedBattle];
    onChange();
   };
   const poolEditor=detail.querySelector('[data-equipment-pool]');

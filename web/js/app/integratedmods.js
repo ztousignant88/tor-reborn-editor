@@ -23,9 +23,15 @@ export class IntegratedMods {
     this.mods.push(this.weaponMod('proficiencyII','Proficiency II'));
     this.mods.push(this.weaponMod('throwReborn','Throw Reborn'));
     this.mods.push(this.weaponMod('rougesReborn','Rouges Reborn'));
+    this.mods.push({
+      key: 'versus', title: 'Versus Mode',
+      applied: () => !!ed.menuMods?.value.versusEnabled,
+      changed: () => !!ed.menuMods?.dirtyIn('versus'),
+      render: (detail, onChange) => this.renderVersus(detail, onChange),
+    });
     this.mods.push({key:'hard-mode',title:'Hard Mode',
-      applied:()=>!!ed.menuMods?.value.enemyArcherRange||!!ed.menuMods?.value.enemyLevelScaling||ed.menuMods?.enemyLoadoutsEnabled||ed.menuMods?.startingCardsEnabled('enemyStartingCards')||ed.menuMods?.statusEnabled(true),
-      changed:()=>!!ed.menuMods&&(!!ed.menuMods.value.enemyArcherRange!==!!JSON.parse(ed.menuMods.original).enemyArcherRange||ed.menuMods.startingCardsChanged('enemyStartingCards')||ed.menuMods.statusChanged(true)||ed.menuMods.enemyLevelsChanged||ed.menuMods.enemyLoadoutsChanged),
+      applied:()=>!!ed.menuMods?.value.enemyArcherRange||!!ed.menuMods?.value.enemyLevelScaling||ed.menuMods?.enemyLoadoutsEnabled||ed.menuMods?.startingCardsEnabled('enemyStartingCards')||ed.menuMods?.statusEnabled(true)||ed.menuMods?.expandedBattlesEnabled,
+      changed:()=>!!ed.menuMods&&(!!ed.menuMods.value.enemyArcherRange!==!!JSON.parse(ed.menuMods.original).enemyArcherRange||ed.menuMods.startingCardsChanged('enemyStartingCards')||ed.menuMods.statusChanged(true)||ed.menuMods.enemyLevelsChanged||ed.menuMods.enemyLoadoutsChanged||ed.menuMods.expandedBattlesChanged),
       render:(detail,onChange)=>ed.menuMods.renderHardMode(detail,onChange,ed)});
     this.mods.push({key:'cheats',title:'Cheats',
       applied:()=>ed.menuMods?.cheatsEnabled,
@@ -115,6 +121,33 @@ export class IntegratedMods {
     return {key,title,applied:()=>!!options?.value[key],
       changed:()=>!!options&&!!options.value[key]!==!!JSON.parse(options.original)[key],
       render:(detail,onChange)=>options.renderWeaponMod(detail,onChange,this.ed,key,title)};
+  }
+
+  renderVersus(detail, onChange) {
+    const mods = this.ed.menuMods;
+    const supported = mods?.info.versusModsVersion && mods.info.expandedBattlesSupported;
+    const writable = !!mods?.info.project && !this.ed.ctx.readOnly?.();
+    const enabled = !!mods?.value.versusEnabled;
+    const pending = mods?.dirtyIn('versus');
+    const ready = supported && mods?.savedVersusEnabled;
+    detail.innerHTML = `<div class="data-head"><div>
+      <h1>Versus Mode</h1>
+      <p>Watch two AI-controlled teams fight at Almorica Castle. Import fighters from saves, assign AI profiles, or generate themed teams for single matches and tournaments.</p>
+      <label><input type="checkbox" data-versus-enable ${enabled ? 'checked' : ''}
+        ${!supported || !writable || mods.saved?.versusLegacy ? 'disabled' : ''}> Enable Versus Mode</label>
+      <p class="hint">${!supported ? 'Requires Steam 1.0.8.0.'
+        : !mods.info.project ? 'Open or create a project to enable Versus.'
+        : mods.saved?.versusLegacy ? 'This project includes a built-in Training fight.'
+        : pending ? 'Save the project, then apply it and restart the game.'
+        : !enabled ? 'Turn on Versus Mode and save the project to open Versus.'
+        : 'Use the Versus button in the top bar to set up matches. Expanded Battle Limit supports 24 vs 24 fights and 30 vs 30 tournaments.'}</p>
+      <div class="data-actions"><button type="button" data-versus-open ${ready ? '' : 'disabled'}>Open Versus</button></div>
+    </div></div>`;
+    detail.querySelector('[data-versus-enable]').onchange = event => {
+      mods.value.versusEnabled = event.target.checked;
+      onChange();
+    };
+    detail.querySelector('[data-versus-open]').onclick = () => document.getElementById('versus-btn').click();
   }
 
   renderList(list, selected, onSelect) {

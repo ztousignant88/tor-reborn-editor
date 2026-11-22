@@ -21,6 +21,7 @@ import { renderPreferences,setRenderPreferences } from './ui/renderpreferences.j
 import {genericRoster,makeGeneric} from './game/genericroster.js';
 import {installCharacterPickers} from './ui/characterpickers.js';
 import {loadCastIndex,actorSlot} from './game/cutscene.js';
+import {installVersus, versusSettings} from './app/versus.js';
 
 const $ = (sel) => document.querySelector(sel);
 const LANG_KEY = 'tor-editor:lang';
@@ -34,6 +35,30 @@ const state = {
   grid: null,
   filter: '',
 };
+
+installVersus(() => state.tables?.lists?.ai ?? [], () => projects.run('apply'), async () => {
+  await $('#integrated-mods-btn').onclick();
+  await dataEditor?.showIntegratedMods(true, 'versus');
+}, syncVersusExpansion);
+versusSettings.addEventListener('message', event => syncVersusExpansion(event.data));
+
+function syncVersusExpansion(project) {
+  if (project.name !== state.info?.project || project.dataRoot !== state.info?.dataRoot) return;
+  state.info.battleUnitLimit = project.battleUnitLimit;
+  const mods = dataEditor?.menuMods;
+  if (mods?.info.project === project.name) {
+    mods.syncBattleExpansion(project.expanded);
+    state.tables?.updateProjectOptions(mods);
+  }
+  updateToolbar();
+  if (state.mode === 'mods' && dataEditor) {
+    dataEditor.renderList();
+    void dataEditor.select(dataEditor.selected);
+  } else if (state.doc) {
+    renderRoster();
+    renderWarnings();
+  }
+}
 
 const catalog = new MapCatalog();
 catalog.placeName = (n) => (n ? state.tables?.text(`STRONGHOLD_LC_STRONGHOLD_${String(n).padStart(3, '0')}_NAME`) ?? '' : '');
@@ -108,6 +133,7 @@ async function start() {
   try {
     setStatus('Connecting to the editor server…');
     state.info = await source.info();
+    updateToolbar();
     if (state.info.integratedContentPending) setStatus(`Preparing project "${state.info.project}"…`);
     catalog.setScope(state.info);
     projects.render();
@@ -552,11 +578,7 @@ async function duplicateUnit(slot) {
   const what = variant
     ? `a variant of slot ${slot} (sheet ${variant.template}${variant.template !== readField(original.row, FIELD.template) ? ` instead of ${readField(original.row, FIELD.template)}` : ''}, name list ${variant.randomName})`
     : `a copy of slot ${slot}`;
-  if (doc.unitSlots().length > LARGEST_STOCK_BATTLE) {
-    toast(`Added ${what} as slot ${index}. ${doc.unitSlots().length} units: the largest stock battle has ${LARGEST_STOCK_BATTLE}. Test in game before going further.`, true);
-  } else {
-    toast(`Added ${what} at ${x}, ${y} as slot ${index}.${counted}`);
-  }
+  toast(`Added ${what} at ${x}, ${y} as slot ${index}.${counted}`);
   renderAll();
   renderBattleList();
 }
@@ -683,7 +705,9 @@ function renderRoster() {
     tr.onclick = () => select(s);
     body.append(tr);
   }
-  $('#roster-count').textContent = `${doc.unitSlots().length} units`;
+  const count = $('#roster-count');
+  count.textContent = `${doc.unitSlots().length} roster units · ${battleLimit()} battle limit`;
+  count.title = 'The battle limit counts player deployment slots, guests, and enemies together.';
   $('#add-unit').disabled = state.slot === null || !!state.info?.readOnly;
   $('#add-character').disabled = !state.doc || !!state.info?.readOnly;
   $('#add-generic').disabled = !state.doc || !!state.info?.readOnly;
@@ -716,6 +740,10 @@ function renderWarnings() {
       const span = document.createElement('span');
       span.className = 'warning';
       span.textContent = `⚠ ${w.text} `;
+      if (!w.fix) {
+        el.append(span);
+        continue;
+      }
       const fix = document.createElement('button');
       fix.className = 'link';
       fix.textContent = w.fixLabel;
@@ -750,8 +778,14 @@ async function countWarnings(doc) {
     if (readField(row, FIELD.team) === ALLY_TEAM) allies++; else others++;
   }
   const out = [];
+  const limit = battleLimit();
   for (const stage of stages) {
     const c = await stageCounts(stage);
+    const total = c.deployment + Math.max(allies, c.allies) + Math.max(others, c.others);
+    if (total > limit) {
+      out.push({text: `Stage ${stage} needs ${total} slots including deployment and guests. The limit is ${limit}.`});
+      continue;
+    }
     for (const [side, field, count, team] of [['allies', allies, c.allies, ALLY_TEAM], ['enemies', others, c.others, 2]]) {
       if (field <= count) continue;
       out.push({
@@ -888,6 +922,13 @@ function pendingChanges() {
 
 function updateToolbar() {
   const p = pendingChanges();
+  const mods = dataEditor?.menuMods;
+  const enabled = state.info?.project && (mods?.info.project === state.info.project
+    ? mods.savedVersusEnabled : state.info.versusEnabled);
+  const versus = $('#versus-btn');
+  versus.disabled = !state.info?.expandedBattlesSupported || !enabled;
+  versus.title = versus.disabled ? 'Enable Versus Mode in Integrated Mods and save the project.'
+    : 'Set up a Versus match or tournament.';
   $('#save').disabled = !!saveInProgress || !p.total || state.info?.readOnly;
   const parts = [];
   if (p.battles) parts.push(`${p.battles} battle${p.battles > 1 ? 's' : ''}`);
@@ -898,6 +939,14 @@ function updateToolbar() {
   $('#save').title = state.info?.project ? `Save into the project "${state.info.project}" (Ctrl+S). The game changes when you apply it (Files menu).` : 'Save to the game (Ctrl+S)';
   $('#undo').disabled = !history.done.length;
   $('#redo').disabled = !history.undone.length;
+}
+
+function battleLimit() {
+  const mods = dataEditor?.menuMods;
+  if (state.info?.expandedBattlesSupported && state.info.project && mods?.info.project === state.info.project) {
+    return mods.value.expandedBattleLimit ? state.info.expandedBattleUnitLimit : LARGEST_STOCK_BATTLE;
+  }
+  return state.info?.battleUnitLimit ?? LARGEST_STOCK_BATTLE;
 }
 
 let saveInProgress = null;
@@ -914,7 +963,7 @@ function save(options) {
 async function savePending({ quiet = false } = {}) {
   try {
     await sync.finishPending();
-    for (const doc of state.battles.filter((doc) => doc.dirty)) await sync.ensureAddedUnitsLoad(doc);
+    for (const doc of state.battles.filter((doc) => doc.dirty)) await sync.ensureAddedUnitsLoad(doc, battleLimit());
   } catch (err) {
     toast(`Save failed: ${err.message}`, true);
     setStatus(`Save failed: ${err.message}`, true);

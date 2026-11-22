@@ -80,6 +80,7 @@ def project(config, name, files, removed, generated=None):
     """Use exactly the same project/live/original precedence as project apply."""
     root = config.project_dir(name) / 'files'
     paths = set(files)
+    paths.update(generated or {})
     directory = config.resolve('battle/entry')
     if directory.is_dir():
         paths.update(config.rel(p) for p in directory.glob('entry_unit_*.dat') if p.is_file())

@@ -46,6 +46,8 @@
         </div>
       </div>
       <button id="save" class="primary" title="Save (Ctrl+S)" disabled>Saved</button>
+      <button id="versus-btn" class="ghost" type="button" aria-haspopup="dialog" aria-controls="versus"
+        title="Enable Versus Mode in Integrated Mods and save the project." disabled>Versus</button>
       <button id="integrated-mods-btn" class="ghost" type="button" data-mode="mods" aria-controls="data-layout">Integrated Mods</button>
       <div class="settings">
         <button id="settings-btn" class="ghost" aria-haspopup="true" aria-expanded="false" aria-controls="settings-menu" title="Settings">⚙ Settings</button>
@@ -64,6 +66,39 @@
       </div>
     </div>
   </header>
+
+  <dialog id="versus" class="project-dialog versus-dialog" aria-labelledby="versus-title">
+    <header class="versus-header">
+      <h2 id="versus-title">Versus</h2>
+      <a class="versus-queue-link" href="versus-queue.html" target="_blank" rel="noopener" hidden>Match queue ↗</a>
+      <form method="dialog"><button class="ghost">Close</button></form>
+    </header>
+    <div class="versus-project">
+      <button id="versus-mods" type="button">Open Integrated Mods</button>
+      <button id="versus-apply" type="button" hidden>Apply Project…</button>
+      <p id="versus-project-status" class="hint" role="status"></p>
+    </div>
+    <div id="versus-setup" hidden>
+    <div class="versus-options">
+      <label>Arena <select id="versus-arena"></select></label>
+      <label>Team size <select id="versus-size"><option value="3">3 vs 3</option><option value="6">6 vs 6</option><option value="12" selected>12 vs 12</option><option value="24">24 vs 24</option></select></label>
+      <button id="versus-random-teams" type="button" disabled>Assign random teams</button>
+      <label title="Dim the spectator's reserved tile in the formation preview."><input type="checkbox" id="versus-hide-spectator" checked> Dim spectator in preview</label>
+      <label title="Leave a fighter's cursed snapshot weapon slot empty for this fight. Your save keeps its equipment."><input type="checkbox" id="versus-omit-snapshots"> Leave snapshot weapons unequipped</label>
+    </div>
+    <div id="versus-squads" class="versus-squads"></div>
+    <footer class="versus-actions">
+      <label for="versus-match-title" class="visually-hidden">Match name</label>
+      <input id="versus-match-title" placeholder="Match name (optional)" maxlength="96">
+      <button id="versus-save" class="primary" type="button" disabled>Save &amp; Queue Fight</button>
+      <button id="versus-save-later" type="button" disabled>Save for Later</button>
+      <button id="versus-preview" type="button" disabled>Check match setup</button>
+      <p id="versus-status" role="status" aria-live="polite" class="hint"></p>
+      <output id="versus-result" class="versus-result" aria-live="polite" hidden></output>
+    </footer>
+    <div id="versus-map-preview" hidden></div>
+    </div>
+  </dialog>
 
   <dialog id="project-dialog" class="project-dialog" aria-labelledby="pd-title">
     <form method="dialog">

@@ -26,6 +26,7 @@ import ai_choices_data
 import class_change
 import dorgalua_xl
 import integrated_content
+import battle_encounters
 import weapon_mods
 import modprep_groups
 import modprep_sets
@@ -40,6 +41,8 @@ import math
 import os
 import re
 import save_editor
+import versus
+import versus_tournaments
 import shutil
 import socket
 import stat
@@ -235,8 +238,10 @@ class EditorConfig:
                     sizes[rel] = base.stat().st_size
             sizes.update({rel: entry["size"] for rel, entry in meta.get("files", {}).items()})
             sizes.update({rel: len(data) for rel, data in (content or {}).items()})
-            table = art_registry.reconcile(table, meta.get("editor", {}).get("artEntries", []), sizes,
-                                           applied.get("artEntries", []))
+            encounters = [entry for entry in battle_encounters.registrations(menu_runtime.project_settings(meta))
+                          if entry['path'] in (content or {})]
+            registrations = art_registry.registrations(meta.get("editor", {}).get("artEntries")) + encounters
+            table = art_registry.reconcile(table, registrations, sizes, applied.get("artEntries", []))
         return table
 
 
@@ -286,6 +291,8 @@ class Handler(SimpleHTTPRequestHandler):
         try:
             if route.startswith(save_editor.API):
                 return save_editor.get(self, route)
+            if route.startswith(versus.API):
+                return versus.get(self, route)
             if route == "/api/info":
                 state = self.config.state()
                 project = self.config.open_project()
@@ -314,7 +321,13 @@ class Handler(SimpleHTTPRequestHandler):
                     "integratedContentVersion": 1,
                     "integratedContentError": preview[2] if preview else None,
                     "integratedContentPending": bool(project) and preview is None,
-                    "hardModeVersion": 9,
+                    "hardModeVersion": 10,
+                    "expandedBattlesSupported": menu_runtime.battle_capacity_supported(self.config),
+                    "versusModsVersion": 1,
+                    "versusEnabled": bool(project and menu_options[versus.MOD_KEY]),
+                    "expandedBattleUnitLimit": battle_encounters.CAPACITY,
+                    "battleUnitLimit": battle_encounters.CAPACITY if menu_options[battle_encounters.KEY] else battle_encounters.STOCK_CAPACITY,
+                    "encounterLinks": battle_encounters.links(menu_options if project else (state.get('menuRuntime') or {}).get('settings', {})),
                     "enemyLevelsVersion": 1,
                     "levelCap99Version": 1,
                     "levelCap99Enabled": menu_options["levelCap99"],
@@ -360,7 +373,7 @@ class Handler(SimpleHTTPRequestHandler):
         except FileNotFoundError:
             return self._error(HTTPStatus.NOT_FOUND, "file not found")
         except (OSError, ValueError) as e:
-            if route.startswith(save_editor.API) and isinstance(e, ValueError):
+            if route.startswith((save_editor.API, versus.API)) and isinstance(e, ValueError):
                 return self._error(HTTPStatus.UNPROCESSABLE_ENTITY, str(e))
             return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, str(e))
 
@@ -368,9 +381,11 @@ class Handler(SimpleHTTPRequestHandler):
         route = urlparse(self.path).path
         if not self._require_api_header():
             return
-        if self.config.read_only:
-            return self._error(HTTPStatus.FORBIDDEN, "server started with --readonly")
         try:
+            if route.startswith(versus.API):
+                return versus.post(self, route, _atomic_replace)
+            if self.config.read_only:
+                return self._error(HTTPStatus.FORBIDDEN, "server started with --readonly")
             if route == save_editor.API + "slot":
                 return save_editor.write(self, _atomic_replace)
             if route == "/api/menu-mods":
@@ -455,7 +470,7 @@ class Handler(SimpleHTTPRequestHandler):
         except FileNotFoundError as e:
             return self._error(HTTPStatus.NOT_FOUND, str(e))
         except (OSError, ValueError) as e:
-            if route == save_editor.API + "slot" and isinstance(e, ValueError):
+            if (route == save_editor.API + "slot" or route.startswith(versus.API)) and isinstance(e, ValueError):
                 return self._error(HTTPStatus.UNPROCESSABLE_ENTITY, str(e))
             return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, str(e))
 
@@ -478,6 +493,14 @@ class Handler(SimpleHTTPRequestHandler):
                 if path.parent == folder and path.name.casefold() not in known:
                     entries.append({"name": path.name, "size": info["size"]})
                     known.add(path.name.casefold())
+            if self.config.rel(folder) in ('battle/entry', 'event/scene'):
+                encounters = battle_encounters.registrations(menu_runtime.selected(self.config, name))
+                if encounters:
+                    content, _, _ = self._integrated_view()
+                    for entry in encounters:
+                        path = self.config.resolve(entry['path'])
+                        if path.parent == folder and path.name.casefold() not in known and entry['path'] in content:
+                            entries.append({"name": path.name, "size": len(content[entry['path']])})
         self._json({"files": sorted(entries, key=lambda entry: entry["name"].lower())})
 
     # ---- map library: whole maps saved under their own names, apart from projects ----
@@ -600,8 +623,6 @@ class Handler(SimpleHTTPRequestHandler):
         with self.config.write_lock:
             name = self.config.open_project()
             original = self.config.editable_path(path)
-            if original is None or not original.is_file():
-                raise PermissionError("new files must first be registered by the character importer")
             if self.headers.get("X-TOR-File-Scope"):
                 return self._write_tracked_file(name, path, data)
             if name:
@@ -611,11 +632,15 @@ class Handler(SimpleHTTPRequestHandler):
                     if rel not in content or view != _sha1(content[rel]):
                         raise ValueError("The integrated mod view changed. Reload before saving "+rel)
                     return self._json({"ok": True, "project": name,
-                                       **self._save_integrated_edit(name, path, read(rel), defaults[rel], content[rel], data,
+                                       **self._save_integrated_edit(name, path, read, defaults[rel], content[rel], data,
                                            self._integrated_text_keys(defaults, read) if rel.startswith("localize/") else ())})
+                if original is None or not original.is_file():
+                    raise PermissionError("New files need a FileTable registration before saving")
                 return self._json({"ok": True, "size": len(data), "project": name, **self._write_to_project(name, path, data)})
             if self.headers.get("X-TOR-Content-View"):
                 raise ValueError("The project changed. Reload before saving integrated content")
+            if original is None or not original.is_file():
+                raise PermissionError("New files need a FileTable registration before saving")
             backed_up = self._backup(path)
             _atomic_replace(path, data)
         self._json({"ok": True, "size": len(data), "backedUp": backed_up})
@@ -696,7 +721,7 @@ class Handler(SimpleHTTPRequestHandler):
             return self._json({"error": rel + " changed since it was opened.",
                                "overwrite": conflict}, HTTPStatus.CONFLICT)
         if rel in content:
-            result = self._save_integrated_edit(name, path, read(rel), defaults[rel], current, data,
+            result = self._save_integrated_edit(name, path, read, defaults[rel], current, data,
                                                self._integrated_text_keys(defaults, read) if rel.startswith("localize/") else ())
             return self._json({"ok": True, "project": name, **result,
                                "revision": revision.split(":", 1)[0] + ":" + result["view"], "scope": self._file_scope(name)})
@@ -748,9 +773,20 @@ class Handler(SimpleHTTPRequestHandler):
         self.config.save_project(name, meta)
         return {}
 
-    def _save_integrated_edit(self, name, path, raw, generated, effective, data, text_keys=()):
+    def _save_integrated_edit(self, name, path, read, generated, effective, data, text_keys=()):
         rel = self.config.rel(path)
         meta = self.config.project(name)
+        if rel in battle_encounters.ROSTERS:
+            key, = (key for key, fight in battle_encounters.selected(menu_runtime.project_settings(meta)).items()
+                    if fight['path'] == rel)
+            battle_encounters.roster_count(data)
+            meta.setdefault('editor', {}).setdefault(battle_encounters.ROSTER_EDITS, {})[key] = data.hex()
+            self.config.save_project(name, meta)
+            self.config._integrated_cache = None
+            return {"size": len(data), "view": _sha1(data)}
+        if rel.startswith(('event/scene/', 'menu/mapname/')):
+            raise ValueError('This built-in encounter archive is generated from its Hard Mode toggle')
+        raw = read(rel)
         original_meta = json.loads(json.dumps(meta))
         edits = meta.setdefault("editor", {}).setdefault(integrated_content.KEY, {})
         base, overrides = integrated_content.split(rel, raw, generated, effective, data, edits.get(rel, {}), text_keys)
@@ -777,7 +813,8 @@ class Handler(SimpleHTTPRequestHandler):
     def _integrated_key(self, name):
         config = self.config
         files = (config.project_dir(name)/PROJECT_FILE, config.project_root/STATE_FILE,
-                 *(config.data_root / rel for rel in (TABLE_NAME, class_change.BATTLE, class_change.MENU)))
+                 *(config.data_root / rel for rel in (TABLE_NAME, class_change.BATTLE, class_change.MENU)),
+                 *sorted(battle_encounters.ROOT.iterdir()))
         return (name, *(p.stat().st_mtime_ns if p.is_file() else None for p in files))
 
     def _integrated_ready(self):
@@ -981,7 +1018,11 @@ class Handler(SimpleHTTPRequestHandler):
         former_sets = set(applied.get("spellSetFiles", [])) | set(applied.get("permissionSetFiles", []))
         former_cap = set(applied.get("levelCapFiles", []))
         former_xl = set(applied.get("dorgaluaXLFiles", []))
-        former = set(applied.get("classChangeFiles", [])) | former_weapons | former_sets | former_cap | former_xl | set(applied.get("aiChoiceFiles", []))
+        former_encounters = set(applied.get('encounterFiles', []))
+        if value[battle_encounters.KEY] and menu_runtime.battle_pilot_applied(self.config, applied):
+            former_encounters.update(applied.get('files', {}))
+        former = (set(applied.get("classChangeFiles", [])) | former_weapons | former_sets | former_cap
+                  | former_xl | set(applied.get("aiChoiceFiles", [])) | former_encounters)
         removed = set(applied.get("files", {})) - set(files) if editor_view or revert_others else set()
         def read(rel):
             game = self.config.resolve(rel)
@@ -997,6 +1038,8 @@ class Handler(SimpleHTTPRequestHandler):
                 raise ValueError("Installed level cap data changed outside the editor: " + rel)
             if rel in former_xl and (not game.is_file() or _sha1(game.read_bytes()) != applied["files"][rel]):
                 raise ValueError("Installed XL Dorgalua data changed outside the editor: " + rel)
+            if rel in former_encounters and (not game.is_file() or _sha1(game.read_bytes()) != applied['files'][rel]):
+                raise ValueError('Installed Hard Mode encounter data changed outside the editor: ' + rel)
             if rel in files:
                 path = (source / rel).resolve()
                 if source.resolve() not in path.parents:
@@ -1036,7 +1079,8 @@ class Handler(SimpleHTTPRequestHandler):
             class_files = class_change.build(effective)
             marks = {int(c): mark for c, mark in class_change.recipe()["marks"].items()}
             entries = ({self.config.rel(path): read(self.config.rel(path))
-                        for path in sorted(self.config.resolve("battle/entry").glob("entry_unit_*.dat"))}
+                        for path in sorted(self.config.resolve("battle/entry").glob("entry_unit_*.dat"))
+                        if self.config.rel(path) not in battle_encounters.ROSTERS or self.config.rel(path) not in former_encounters}
                        if not editor_view or value["genericSpecialRecruitment"] else {})
             recruitment = ()
             if value["genericSpecialRecruitment"]:
@@ -1058,6 +1102,8 @@ class Handler(SimpleHTTPRequestHandler):
                 recruitment = weapon_mods.rogue_recruitment(weapon_files[class_change.BATTLE])
                 for path in sorted(self.config.resolve("battle/entry").glob("entry_unit_*.dat")):
                     rel = self.config.rel(path)
+                    if rel in battle_encounters.ROSTERS and rel in former_encounters:
+                        continue
                     original = effective(rel)
                     changed = class_change.mark_drops(original, {}, recruitment)
                     if changed != original:
@@ -1067,6 +1113,19 @@ class Handler(SimpleHTTPRequestHandler):
         set_files = {}
         if value["dorgaluaXLFix"]:
             generated[class_change.BATTLE] = dorgalua_xl.build(effective(class_change.BATTLE))
+        if any(value[key] for key in battle_encounters.FIGHTS):
+            for entry in battle_encounters.registrations(value):
+                rel = entry['path']
+                try:
+                    read(rel)
+                except FileNotFoundError:
+                    continue
+                raise ValueError('A Hard Mode encounter needs this path, which the project already uses: ' + rel)
+            def encounter_input(rel):
+                # Some stock roster filenames have different case on disk.
+                return effective(self.config.rel(self.config.resolve(rel)))
+
+            generated.update(battle_encounters.build(encounter_input, value, meta.get('editor', {})))
         extra_text = {}
         if self._integrated_text_keys(generated, read):
             text_files = (self.config.rel(path) for path in self.config.resolve("localize").glob("LocalizeText_*.dat")) if editor_view else (
@@ -1093,6 +1152,8 @@ class Handler(SimpleHTTPRequestHandler):
         if value["levelCap99"] and not editor_view:
             archive, _, _ = level_cap_99.build_archive(effective(class_change.BATTLE))
             generated[class_change.BATTLE] = archive
+        if value[battle_encounters.KEY] and not editor_view:
+            battle_encounters.validate_battle_limit(effective(class_change.BATTLE))
         if value["specialClassChange"] and not editor_view:
             groups = modprep_groups.settings(meta.get("editor", {}).get("communityClassGroups"))
             overrides = modprep_groups.override_settings(meta.get("editor", {}).get(modprep_groups.OVERRIDES))
@@ -1120,7 +1181,7 @@ class Handler(SimpleHTTPRequestHandler):
             table = self.config.backup_root / TABLE_NAME
             if not table.is_file():
                 table = self.config.resolve(TABLE_NAME)
-            registrations = art_registry.registrations(meta.get("editor", {}).get("artEntries"))
+            registrations = art_registry.registrations(meta.get("editor", {}).get("artEntries")) + battle_encounters.registrations(value)
             files[TABLE_NAME] = art_registry.reconcile(table.read_bytes(), registrations, {n: len(b) for n,b in files.items()})
             section, sidecars = payload
             sets = modprep_sets.runtime(meta, value["equipmentSetBonuses"], value["equipmentSetFreeSkills"])
@@ -1201,12 +1262,26 @@ class Handler(SimpleHTTPRequestHandler):
             cap_restore = set(others) & set(before.get("levelCapFiles", []))
             ai_restore = set(others) & set(before.get("aiChoiceFiles", []))
             xl_restore = set(others) & set(before.get("dorgaluaXLFiles", []))
-            forced_restore = class_restore | weapon_restore | spell_restore | cap_restore | ai_restore | xl_restore
+            encounter_restore = set(others) & set(before.get('encounterFiles', []))
+            if value[battle_encounters.KEY] and menu_runtime.battle_pilot_applied(self.config, before):
+                encounter_restore.update(others)
+            forced_restore = class_restore | weapon_restore | spell_restore | cap_restore | ai_restore | xl_restore | encounter_restore
             if before.get("classChangeFiles") and not value["specialClassChange"]:
                 class_change.assert_can_remove()
             weapon_mods.assert_can_remove((state.get("menuRuntime") or {}).get("settings", {}), value)
             progress(67, "Checking compatibility and runtime files")
             removed = set(others) if body.get("revertOthers") else forced_restore
+            if not value[battle_encounters.KEY]:
+                # Check the stage table that will remain installed when expansion is off.
+                installed_battle = self.config.resolve(battle_encounters.BATTLE)
+                rel = self.config.rel(installed_battle)
+                if rel in files:
+                    battle = generated[rel] if rel in generated else read(rel)
+                elif rel in removed:
+                    battle = read(rel)
+                else:
+                    battle = installed_battle.read_bytes()
+                battle_encounters.validate_battle_limit(battle, battle_encounters.STOCK_CAPACITY)
             ai_validation.project(self.config, name, project_files, removed, generated)
             custom_action_icons = any(row['bank'] != 'itemicon' for row in
                                       icon_import.catalog(meta.get('editor', {}).get('customIcons')))
@@ -1215,13 +1290,16 @@ class Handler(SimpleHTTPRequestHandler):
                                            for row in icon_import.catalog(before.get('customIcons')))
             runtime = menu_runtime.prepare(self.config, value, name, class_payload, custom_action_icons, read=read)
             if body.get("dryRun"):
-                return {"files": plan, "changed": changed, "others": others, "classRestore": sorted(class_restore), "weaponRestore": sorted(weapon_restore), "spellRestore": sorted(spell_restore), "levelCapRestore": sorted(cap_restore), "aiChoiceRestore": sorted(ai_restore), "dorgaluaXLRestore": sorted(xl_restore), "appliedBefore": before.get("name"), "runtime": runtime["public"]}
+                return {"files": plan, "changed": changed, "others": others, "classRestore": sorted(class_restore), "weaponRestore": sorted(weapon_restore), "spellRestore": sorted(spell_restore), "levelCapRestore": sorted(cap_restore), "aiChoiceRestore": sorted(ai_restore), "dorgaluaXLRestore": sorted(xl_restore), "encounterRestore": sorted(encounter_restore), "appliedBefore": before.get("name"), "runtime": runtime["public"]}
             progress(74, "Checking files to write and restore")
-            if not body.get("revertOthers") and "battle/battle_data_release.dat" in files and any(entry["path"] not in files for entry in before.get("artEntries", [])):
+            if not body.get("revertOthers") and "battle/battle_data_release.dat" in files and any(
+                entry["path"].startswith("object/") and entry["path"] not in files
+                for entry in before.get("artEntries", [])
+            ):
                 raise ValueError("This project replaces character tables but omits installed project characters. Take the previous project's other files out, or build from that project first.")
             table_path = self.config.data_root / TABLE_NAME
             old_table = table_path.read_bytes()
-            registrations = art_registry.registrations(meta.get("editor", {}).get("artEntries"))
+            registrations = art_registry.registrations(meta.get("editor", {}).get("artEntries")) + battle_encounters.registrations(value)
             drop = [entry for entry in before.get("artEntries", []) if entry["path"] in removed]
             sizes = {rel: entry["size"] for rel, entry in files.items()}
             changes, written, reverted = [], [], []
@@ -1303,6 +1381,8 @@ class Handler(SimpleHTTPRequestHandler):
                     next_state["applied"]["permissionSetFiles"] = sorted(set_files)
                 if ai_files:
                     next_state["applied"]["aiChoiceFiles"] = sorted(ai_files)
+                if encounter_paths := battle_encounters.owned_paths(value):
+                    next_state['applied']['encounterFiles'] = sorted(encounter_paths)
                 progress(99, "Recording the applied project")
                 self.config.save_state(next_state)
             except Exception:
@@ -1704,6 +1784,25 @@ class EditorServer(ThreadingHTTPServer):
     # would silently land on the first one's port. Fail instead and move on.
     allow_reuse_address = False
     request_queue_size = 128  # the editor opens many parallel reads; the default backlog of 5 drops some
+    _next_tournament_poll = 0.0
+
+    def service_actions(self):
+        # The IPv4 server owns the poll even when both loopback listeners run.
+        config = self.RequestHandlerClass.config
+        now = time.monotonic()
+        if self.address_family != socket.AF_INET or config.read_only or now < self._next_tournament_poll:
+            return
+        self._next_tournament_poll = now + 2
+        if not config.write_lock.acquire(blocking=False):
+            return
+        try:
+            versus_tournaments.auto_advance(config, _atomic_replace)
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            config.tournament_auto_error = str(exc)
+        else:
+            config.tournament_auto_error = None
+        finally:
+            config.write_lock.release()
 
 
 class IPv6Server(EditorServer):

@@ -100,6 +100,7 @@ export class BattleSync {
 
   /** A unit's side changes its stage counts when it is added (+1) or taken out (-1), if it is on the field. */
   countChange(doc, row, sign) {
+    if (this.ctx.catalog.encounters.has(doc.key)) return () => {}; // built-in stages recount saved rosters
     if (row[FIELD.appears.offset] !== ON_FIELD) return () => {};
     const team = row[FIELD.team.offset];
     const stages = this.stagesOf(doc);
@@ -111,19 +112,26 @@ export class BattleSync {
   }
 
   /** Keep new on-field units within the stage's load counts before either file is saved. */
-  async ensureAddedUnitsLoad(doc) {
+  async ensureAddedUnitsLoad(doc, limit) {
+    if (this.ctx.catalog.encounters.has(doc.key)) return;
     const stages = this.stagesOf(doc);
     if (!stages.length) return;
     const before = fieldCounts(parseEntryPack(parsePakd(doc.savedPack)));
     const after = fieldCounts(doc.units);
+    const changes = [];
     for (const stage of stages) {
       const counts = await stageCounts(stage);
       for (const [side, team] of [['allies', ALLY_TEAM], ['others', ENEMY_TEAM]]) {
         if (after[side] <= before[side] || after[side] <= counts[side]) continue;
-        if (after[side] > 255) throw new Error(`Stage ${stage} cannot load more than 255 units on one side.`);
-        await changeStageCount(stage, team, after[side] - counts[side]);
+        changes.push([stage, team, after[side] - counts[side]]);
+        counts[side] = after[side];
+      }
+      const total = counts.deployment + counts.allies + counts.others;
+      if (total > limit) {
+        throw new Error(`Stage ${stage} needs ${total} slots including deployment and guests. The limit is ${limit}.`);
       }
     }
+    for (const change of changes) await changeStageCount(...change);
   }
 
   // ---- characters -----------------------------------------------------------

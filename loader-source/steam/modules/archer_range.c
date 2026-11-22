@@ -2,7 +2,7 @@
 #include <stddef.h>
 
 enum { BOW_CATEGORY = 18, WEAPON_ACTION = 2, ENEMY_TEAM = 2, PLAYER_TEAM = 1 };
-enum { UNIT_COUNT = 30, UNIT_STRIDE = 0x7d0, TILE_CAPACITY = 1024 };
+enum { UNIT_STRIDE = 0x7d0, TILE_CAPACITY = 1024 };
 
 typedef struct {
     void *battle;
@@ -52,14 +52,15 @@ static void archer_candidates(ArcherTiles *list, const uint8_t *action,
 
     const uint8_t *units;
     memcpy(&units, (const uint8_t *)list->battle + 0x1b48, sizeof units);
-    if (!mm_readable(units, UNIT_COUNT * UNIT_STRIDE))
+    const unsigned unit_count = battle_capacity_unit_count();
+    if (!mm_readable(units, unit_count * UNIT_STRIDE))
         return;
     int (*height)(unsigned, unsigned) = (void *)(mm_base + 0x2dc3e0);
     const int origin_height = height(x, y);
     _Alignas(16) uint8_t trajectory[0x110];
     int initialized = 0;
 
-    for (unsigned slot = 0; slot < UNIT_COUNT && list->count < TILE_CAPACITY; ++slot) {
+    for (unsigned slot = 0; slot < unit_count && list->count < TILE_CAPACITY; ++slot) {
         const uint8_t *target = units + slot * UNIT_STRIDE;
         if (!target[0x10] || target[0x142] || target[0x188] != PLAYER_TEAM)
             continue;

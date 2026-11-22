@@ -8,5 +8,8 @@ zig-cache/
 __pycache__/
 *.py[cod]
 *.dat
+# Custom title banners rendered for the two editor encounters.
+!/tools/battle_encounters/finalShowdown-banner.dat
+!/tools/battle_encounters/walkingDead-banner.dat
 *.exe
 *.sav

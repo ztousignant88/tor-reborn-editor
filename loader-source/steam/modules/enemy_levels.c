@@ -22,11 +22,12 @@ static uint8_t *el_battle_units(void) {
     const uint8_t *battle = contexts + (size_t)index * 0xdd580;
     if (!mm_readable(battle, 0x1b50)) return NULL;
     uint8_t *units; memcpy(&units, battle + 0x1b48, sizeof units);
-    return mm_readable(units, 30 * 0x7d0) ? units : NULL;
+    return mm_readable(units, battle_capacity_unit_count() * 0x7d0) ? units : NULL;
 }
 static int el_highest(const uint8_t *units) {
     int highest = 0;
-    for (unsigned i = 0; i < 30; ++i) {
+    const unsigned count = battle_capacity_unit_count();
+    for (unsigned i = 0; i < count; ++i) {
         const uint8_t *u = units + i * 0x7d0;
         /* Include fallen deployed allies; exclude undeployed reserve records.
          * +0x24c is the character's original level, before battle level sync. */
@@ -97,7 +98,8 @@ static void el_apply(int lock) {
             mm_log(line);
         }
     }
-    for (unsigned i = 0; i < 30; ++i) {
+    const unsigned count = battle_capacity_unit_count();
+    for (unsigned i = 0; i < count; ++i) {
         uint8_t *u = units + i * 0x7d0;
         if (u[0x10] && u[0x188] == 2) {
             el_adjust(u, el_target);
