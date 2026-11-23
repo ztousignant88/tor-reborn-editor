@@ -91,6 +91,11 @@ export const source = {
   async menuMods() {
     return (await check(await fetch('/api/menu-mods',{headers:HEADERS}))).json();
   },
+  async mapBackdrops(update) {
+    const options = update ? { method: 'POST', headers: {...HEADERS, 'Content-Type': 'application/json'},
+      body: JSON.stringify(update) } : {headers: HEADERS};
+    return (await check(await fetch('/api/map-backdrops', options))).json();
+  },
   async exportClassChange(project) {
     return (await check(await fetch(`/api/project/export-class-change?${q({project})}`, {headers:HEADERS}))).blob();
   },

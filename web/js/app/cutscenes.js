@@ -9,7 +9,7 @@ import {
   CHAPTERS, COMMANDS, TALK_BOXES, actorSlot, addCastRow, carryAddedActor, castStarts, buildTimeline, castChanged, copyTouched, deleteStep, encodeScene, fieldLock,
   forgetChapter, insertAfter, insertBefore, isAddedSlot, isStop, listSceneFiles, loadCastIndex, loadChapter, loadCutscene,
   addBattleScenePart, battleDraftRecords, sceneRecord, loadMessageTable, partChanged, revertCastSlot, revertPart, revertUnitCopy, sceneDirty, setCastLook, setCastStart, setStepField, setUnitCopy, slotActor,
-  stateAt, stepFields, unitCopy,refreshEffectDurations,
+  stateAt, stepFields, stepRange, unitCopy,refreshEffectDurations,
   addWaypoint, removeWaypoint, snapshotScripts, restoreScripts, addEventPart, insertAtEnd,
 } from '../game/cutscene.js';
 import { MENU } from '../game/chapter.js';
@@ -61,7 +61,7 @@ export class CutsceneEditor {
     this.panel = 'lines';
     this.undoStack = []; // script and dialogue-page edits of the open part (see pushUndo)
     this.afterEvents=new AfterEventsPanel(this);
-    this.addForm = { type: 'place', actor: null, x: 0, y: 0, dir: 0, anim: 0, action:54,weapon:-1,effect:121,frames: 30, text: '', box: 27 };
+    this.addForm = { type: 'place', actor: null, x: 0, y: 0, dir: 0, anim: 0, action:54,weapon:-1,effect:121,frames: 30, text: '', box: 27, closeAfterLine: true };
     const handlers = {
       directionalSprites: true,
       onSelectUnit: () => {},
@@ -76,8 +76,8 @@ export class CutsceneEditor {
   }
 
   // ---- loading --------------------------------------------------------
-  async open() {
-    if (this.files.length) return;
+  async open(refresh = false) {
+    if (this.files.length && !refresh) return;
     this.ctx.setStatus('Listing cutscenes…');
     this.files = await listSceneFiles();
     this.renderList();
@@ -100,8 +100,15 @@ export class CutsceneEditor {
     try {
       await this.ensureText();
       const scene = this.edited.get(file.name) ?? await loadCutscene(file.name);
-      scene.messages ??= await loadMessageTable(scene.chapter);
+      const encounter = this.ctx.catalog.encounterForScene(file.id);
       scene.chapterFile = await loadChapter(scene.chapter);
+      if (encounter && !scene.chapterFile.allRecords().some(r => r.stage === encounter.storyStage && r.map === encounter.mapNumber)) {
+        if (scene.chapterFile.dirty) throw new Error('Save the open chapter edits before opening this new cutscene.');
+        forgetChapter(scene.chapter);
+        scene.chapterFile = await loadChapter(scene.chapter);
+        scene.messages = null;
+      }
+      scene.messages ??= await loadMessageTable(scene.chapter);
       this.scene = scene;
       this.file = file;
       this.draftRecordIndex=null;
@@ -150,14 +157,16 @@ export class CutsceneEditor {
     const catalog = this.ctx.catalog;
     this.fromGame = await this.gameMap();
     const id = catalog.chosenMap(this.mapKey) || this.fromGame?.id;
-    // same map as the part shown before: keep it, and the camera where you left it
-    if (id && id === this.loadedMap && this.has3d && this.grid) return;
+    const grid = id ? catalog.grid(id) : null;
+    // Keep the camera when switching parts on the same unchanged map.
+    if (id && id === this.loadedMap && grid === this.loadedGrid && this.has3d && this.grid) return;
     this.loadedMap = id;
+    this.loadedGrid = grid;
     this.grid = null;
     this.has3d = false;
     if (id) {
       try {
-        this.grid = await catalog.grid(id);
+        this.grid = await grid;
         if (this.view3d) {
           this.view3d.setScene(await catalog.scene(id), this.grid);
           this.has3d = true;
@@ -453,6 +462,7 @@ export class CutsceneEditor {
     const who = s.kind === 'talk' ? this.lineSpeaker(s) : typeof s.actor === 'number' ? this.speaker(s.actor) : '';
     switch (s.kind) {
       case 'talk': return `${who} speaks (${s.box})`;
+      case 'closeDialogue': return 'Close dialogue';
       case 'narration': return s.notice?'Notice box':this.lineSpeaker(s)==='Message'?'Message':`${this.lineSpeaker(s)} speaks`;
       case 'place': return `${who} appears at ${s.x}, ${s.y}${s.dir != null ? `, facing ${FACING[s.dir] ?? s.dir}` : ''}`;
       case 'move': return `${who} moves to ${s.x}, ${s.y}${s.path.length > 1 ? ` via ${s.path.slice(0, -1).map((p) => p.join(',')).join(' → ')}` : ''}`;
@@ -488,7 +498,8 @@ export class CutsceneEditor {
   }
 
   renderHeader() {
-    $('#cs-title').textContent = this.file.id;
+    const encounter = this.ctx.catalog.encounterForScene(this.file.id);
+    $('#cs-title').textContent = encounter?.title ?? this.file.id;
     const sel = $('#cs-script');
     const drafts=battleDraftRecords(this.scene),record=this.storyRecord();
     sel.disabled=this.scene.parts.length+drafts.length<2;
@@ -507,7 +518,7 @@ export class CutsceneEditor {
     maps.value = chosen || '';
     const cast = [...new Set(this.scene.cast.map((c) => this.characterName(c.character)).filter(Boolean))];
     const battle = this.battlePreview?.doc;
-    $('#cs-meta').textContent = [this.file.chapter?.label, cast.join(', '), battle?.fileName].filter(Boolean).join(' · ');
+    $('#cs-meta').textContent = [this.file.chapter?.label, encounter && this.file.id, cast.join(', '), battle?.fileName].filter(Boolean).join(' · ');
     const battleLink=$('#cs-open-battle');
     battleLink.hidden=!battle;
     battleLink.title=battle?`Open ${battle.fileName} for this cutscene part`:'';
@@ -762,9 +773,11 @@ export class CutsceneEditor {
   renderList() {
     const list = $('#cs-list');
     const q = this.filter.trim().toLowerCase();
+    const titles = new Map(this.ctx.catalog.customEncounters().map(row => [row.scene, row.title]));
     list.innerHTML = '';
     for (const ch of [...CHAPTERS, { prefix: null, label: 'Other' }]) {
-      const files = this.files.filter((f) => (f.chapter ? f.chapter.prefix === ch.prefix : ch.prefix === null) && (!q || f.id.toLowerCase().includes(q)));
+      const files = this.files.filter((f) => (f.chapter ? f.chapter.prefix === ch.prefix : ch.prefix === null) &&
+        (!q || f.id.toLowerCase().includes(q) || titles.get(f.id)?.toLowerCase().includes(q)));
       if (!files.length) continue;
       const head = document.createElement('div');
       head.className = 'list-group';
@@ -774,7 +787,8 @@ export class CutsceneEditor {
         const b = document.createElement('button');
         b.className = `battle${this.file?.id === f.id ? ' active' : ''}`;
         const mapped = this.ctx.catalog.chosenMap({ key: `scene:${f.id.toLowerCase()}` });
-        b.innerHTML = `<span class="battle-title">${esc(f.id)}${this.edited.has(f.name) ? ' <span class="dirty">●</span>' : ''}</span><span class="battle-sub">${(f.size / 1024 / 1024).toFixed(1)} MB${mapped ? ' · map ✓' : ''}</span>`;
+        const title = titles.get(f.id);
+        b.innerHTML = `<span class="battle-title">${esc(title ?? f.id)}${this.edited.has(f.name) ? ' <span class="dirty">●</span>' : ''}</span><span class="battle-sub">${title ? esc(f.id) + ' · ' : ''}${(f.size / 1024 / 1024).toFixed(1)} MB${mapped ? ' · map ✓' : ''}</span>`;
         b.onclick = () => this.openScene(f);
         list.append(b);
       }
@@ -1001,13 +1015,13 @@ export class CutsceneEditor {
       if (!actors.length) actors = [{actor:1,name:'Leader / actor 1 (runtime party)'}];
     }
     if (f.actor === null || !actors.some((a) => a.actor === f.actor)) f.actor = actors[0]?.actor ?? 1;
-    const types = { place: 'Place', walk: 'Walk to', fly:'Fly to',via: 'Walk via (before a walk)', face: 'Turn', anim: 'Scene animation',body:'Body action / attack',weapon:'Equipped weapon action',cast:'Cast spell / effect', line: 'Line of dialogue', notice: 'Notice box ("You received…")', wait: 'Wait', show: 'Fade in', hide: 'Fade out', hidenow: 'Hide at once' };
-    const uses = { place: 'xy dir', walk: 'xy',fly:'xy', via: 'xy', face: 'dir', anim: 'anim',body:'action',weapon:'weapon',cast:'effect xy', line: 'text box', notice: 'text', wait: 'frames', show: 'frames', hide: 'frames', hidenow: '' }[f.type];
+    const types = { place: 'Place', walk: 'Walk to', fly:'Fly to',via: 'Walk via (before a walk)', face: 'Turn', anim: 'Scene animation',body:'Body action / attack',weapon:'Equipped weapon action',cast:'Cast spell / effect', line: 'Line of dialogue', closeDialogue: 'Close dialogue', notice: 'Notice box ("You received…")', wait: 'Wait', show: 'Fade in', hide: 'Fade out', hidenow: 'Hide at once' };
+    const uses = { place: 'xy dir', walk: 'xy',fly:'xy', via: 'xy', face: 'dir', anim: 'anim',body:'action',weapon:'weapon',cast:'effect xy', line: 'text box closeAfterLine', closeDialogue: '', notice: 'text', wait: 'frames', show: 'frames', hide: 'frames', hidenow: '' }[f.type];
     const on = (k) => (uses.split(' ').includes(k) ? '' : ' hidden');
     return `<details class="se-insert"${this.stops.length ? '' : ' open'}><summary>Add a new step</summary><div class="se-add" data-uses="${uses}">
       <span class="se-title">Add</span>
       <select data-add="type">${Object.entries(types).map(([k, l]) => `<option value="${k}" ${k === f.type ? 'selected' : ''}>${l}</option>`).join('')}</select>
-      ${f.type === 'wait' || f.type === 'notice' ? '' : `<select data-add="actor" title="Who">${this.actorOptions(f.actor)}</select>`}
+      ${['wait', 'notice', 'closeDialogue'].includes(f.type) ? '' : `<select data-add="actor" title="Who">${this.actorOptions(f.actor)}</select>`}
       <label${on('xy')}>X <input data-add="x" type="number" value="${f.x}"></label>
       <label${on('xy')}>Y <input data-add="y" type="number" value="${f.y}"></label>
       <label${on('dir')}>Facing <select data-add="dir">${FACING.map((n, i) => `<option value="${i}" ${i === f.dir ? 'selected' : ''}>${n}</option>`).join('')}</select></label>
@@ -1017,6 +1031,7 @@ export class CutsceneEditor {
       <label${on('effect')}>Spell / effect <span data-add-effect></span></label>
       <label${on('frames')}>Frames <input data-add="frames" type="number" value="${f.frames}"></label>
       <label${on('box')}>Box <select data-add="box">${Object.entries(TALK_BOXES).map(([n, l]) => `<option value="${n}" ${Number(n) === f.box ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+      <label${on('closeAfterLine')}><input data-add="closeAfterLine" type="checkbox" ${f.closeAfterLine ? 'checked' : ''}> Close box after this line</label>
       <textarea data-add="text" rows="2" class="se-text${on('text')}" placeholder="Text. A blank line starts a new page; {Leader} is the player's name.">${esc(f.text)}</textarea>
       <button data-add="before">Insert ${step ? 'before' : 'at start'}</button>
       ${step ? '<button data-add="after">Insert after</button>' : ''}
@@ -1038,6 +1053,7 @@ export class CutsceneEditor {
         weapon:'−1 uses the actor’s equipped weapon in game. A positive number previews that equipment’s artwork and motion. This does not change equipment or apply damage.',
       effect:'Runs the game’s battle spell/effect at X,Y and waits for completion. Effects can change units or terrain in game; the preview shows only a casting pose.',
       box: 'Chooses where/how this new line’s dialogue box is presented. This does not change who speaks the line.',
+      closeAfterLine: 'Closes the dialogue box in game after the last page. Clear this to leave it open for a later Close dialogue step.',
       text: 'Writes the inserted dialogue. A blank line starts a new page; {Leader} inserts the player character’s name. New text does not create a matching recorded voice line.',
       before: 'Inserts the configured command before the selected step, or at the start when no step is selected.',
       after: 'Inserts the configured command after the selected step. Commands that run several times can affect each execution of that script command.',
@@ -1048,8 +1064,14 @@ export class CutsceneEditor {
       el.onchange = () => {
         const k = el.dataset.add;
         if(k==='actor'&&el.value.startsWith('add:')){this.addActorChoice(Number(el.value.slice(4)));return;}
-        f[k] = k === 'text' ? el.value : Number(el.value);
-        if (k === 'type') { f.type = el.value; this.renderStepEditor(); }
+        if (k === 'type') {
+          f.type = el.value;
+          this.renderStepEditor();
+        } else if (el.type === 'checkbox') {
+          f[k] = el.checked;
+        } else {
+          f[k] = k === 'text' ? el.value : Number(el.value);
+        }
       };
     }
     if (f.type === 'cast') {
@@ -1177,9 +1199,13 @@ export class CutsceneEditor {
     this.creatingBattleScene=true;
     const scene=this.scene,chapter=scene.chapterFile,record=this.storyRecord();
     try{
-      const part=await addBattleScenePart(scene,record);
-      part.originalChapterFlags=record.flags;part.chapterRecordIndex=record.i;const baseline=chapter.newSceneBaseline??={pack:chapter.buildPack(),edited:chapter.edited};part.chapterBefore=baseline.pack;part.chapterWasEdited=baseline.edited;
-      chapter.records[record.i][0x1e]|=0x80;chapter.edited=true;this.chapterFiles.add(chapter);
+      const opening = !!this.ctx.catalog.encounterForScene(this.file.id);
+      const part=await addBattleScenePart(scene,record,{opening});
+      part.chapterRecordIndex=record.i;
+      if (!opening) {
+        part.originalChapterFlags=record.flags;const baseline=chapter.newSceneBaseline??={pack:chapter.buildPack(),edited:chapter.edited};part.chapterBefore=baseline.pack;part.chapterWasEdited=baseline.edited;
+        chapter.records[record.i][0x1e]|=0x80;chapter.edited=true;this.chapterFiles.add(chapter);
+      }
       this.edited.set(scene.fileName,scene);this.ctx.onChange();
       if(this.scene===scene){await this.selectScript(scene.parts.indexOf(part));this.renderList();}
       this.ctx.setStatus('New cutscene ready. Insert the first step below the viewer. Save when ready.');
@@ -1191,6 +1217,7 @@ export class CutsceneEditor {
     if (!this.guardEdit()) return;
     const f = this.addForm;
     const a = f.actor;
+    let insertionStep = step;
     let cmds;
     this.pushUndo(`Add a step (${f.type})`);
     const undo = this.undoStack.at(-1);
@@ -1226,9 +1253,11 @@ export class CutsceneEditor {
           if (!f.text.trim()) { this.undoStack.pop(); this.ctx.toast('Type the line first.', true); return; }
           const msg = await this.addMessage(a, f.text);
           cmds = [COMMANDS.talk(a, msg, f.box)];
+          if (f.closeAfterLine) cmds.push(COMMANDS.closeDialogue());
           f.text = '';
           break;
         }
+        case 'closeDialogue': cmds = [COMMANDS.closeDialogue()]; break;
         case 'notice': {
           if (!f.text.trim()) { this.undoStack.pop(); this.ctx.toast('Type the text of the box first.', true); return; }
           cmds = [COMMANDS.notice(await this.addMessage(0, f.text, { speaker: 0 }))];
@@ -1237,7 +1266,14 @@ export class CutsceneEditor {
         }
         default: this.undoStack.pop(); return;
       }
-      if (where === 'after' && step) insertAfter(this.scene, this.part, step, cmds);
+      if (where === 'after' && step) {
+        if (step.kind === 'talk') {
+          const [start, count] = stepRange(this.part, step);
+          const next = this.part.file.scripts[step.script].code[start + count];
+          insertionStep = this.steps.find(s => s.kind === 'closeDialogue' && s.script === step.script && s.at === next?.at) ?? step;
+        }
+        insertAfter(this.scene, this.part, insertionStep, cmds);
+      }
       else insertBefore(this.scene, this.part, step ?? null, cmds);
     } catch (err) {
       console.error(err);
@@ -1249,7 +1285,8 @@ export class CutsceneEditor {
       const scene=this.scene,part=this.part;this.edited.set(scene.fileName,scene);this.ctx.onChange();
       await refreshEffectDurations(scene);if(this.scene!==scene||this.part!==part)return;
     }
-    const at = where === 'after' ? this.pos + 1 : Math.max(0, this.pos);
+    if (f.type === 'line') f.closeAfterLine = true;
+    const at = where === 'after' ? this.steps.indexOf(insertionStep) + 1 : Math.max(0, this.pos);
     this.afterScriptChange(at);
     this.ctx.setStatus(`Added: ${this.describe(this.steps[this.pos])}`);
   }
@@ -1382,10 +1419,13 @@ export class CutsceneEditor {
       this.ctx.setStatus('The added in-battle event was removed.');return;
     }
     if(this.part?.isNew){
-      const part=this.part;this.scene.chapterFile.records[part.chapterRecordIndex][0x1e]=part.originalChapterFlags;
+      const part=this.part;
       const chapter=this.scene.chapterFile;revertPart(this.scene,part);
-      const packed=chapter.buildPack();chapter.edited=part.chapterWasEdited||packed.length!==part.chapterBefore.length||packed.some((v,i)=>v!==part.chapterBefore[i]);
-      if(!chapter.edited)this.chapterFiles.delete(chapter);
+      if (part.chapterBefore) {
+        chapter.records[part.chapterRecordIndex][0x1e]=part.originalChapterFlags;
+        const packed=chapter.buildPack();chapter.edited=part.chapterWasEdited||packed.length!==part.chapterBefore.length||packed.some((v,i)=>v!==part.chapterBefore[i]);
+        if(!chapter.edited)this.chapterFiles.delete(chapter);
+      }
       if(!sceneDirty(this.scene))this.edited.delete(this.scene.fileName);
       this.draftRecordIndex=part.chapterRecordIndex;this.selectScript(-1);this.ctx.onChange();return;
     }

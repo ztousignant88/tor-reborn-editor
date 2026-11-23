@@ -79,14 +79,33 @@ export class MapCatalog {
 
   byId(id) { return this.maps.find((m) => m.id === id) || null; }
 
+  customEncounters() { return [...this.encounters.values()].flat().filter(row => row.custom); }
+  encounterForScene(id) { return this.customEncounters().find(row => row.scene === id); }
+  encounterForMap(id) { return this.customEncounters().find(row => row.map === id); }
+
+  async refreshEncounterMaps(changed) {
+    if (!changed.size) return;
+    const maps = [...new Set(this.customEncounters().map(row => row.map))].filter(id => changed.has(id));
+    const entries = await Promise.all(maps.map(async id => {
+      const file = id + '.dat';
+      return { ...await readMapInfo('bg/' + file), id, file };
+    }));
+    for (const id of changed) this.grids.delete(id);
+    if (changed.has(this.sceneCache?.id)) this.sceneCache = null;
+    this.maps = [...this.maps.filter(row => !changed.has(row.id)), ...entries]
+      .sort((a, b) => a.id.localeCompare(b.id));
+  }
+
   /** "Golyat": the place the story is at on this map, in the current text language. */
   placeLabel(id) {
     const l = this.links.maps[id];
-    return (l && this.placeName(l.place)) || this.knownMaps[id]?.label || '';
+    return this.encounterForMap(id)?.title || (l && this.placeName(l.place)) || this.knownMaps[id]?.label || '';
   }
 
   /** The battles (unit files) and cutscene files the story uses this map for. */
   mapLinks(id) {
+    const encounter = this.encounterForMap(id);
+    if (encounter) return { battles: [encounter.roster], scenes: this.encounters.get(encounter.roster).map(row => row.scene) };
     const l = this.links.maps[id];
     const base = l?.variantOf ? this.links.maps[l.variantOf] : l;
     return { battles: base?.battles ?? [], scenes: base?.scenes ?? [] };
@@ -94,6 +113,8 @@ export class MapCatalog {
 
   /** "bg003_01_c0_t00 · Almorica Castle (23×17)" */
   mapLabel(m) {
+    const encounter = this.encounterForMap(m.id);
+    if (encounter) return `${encounter.title} · ${m.width}×${m.depth}`;
     const name = this.placeLabel(m.id) || this.knownMaps[m.id]?.label;
     return `${m.id}${name ? ` · ${name}` : ''}  (${m.width}×${m.depth})`;
   }

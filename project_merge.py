@@ -321,6 +321,13 @@ def merge_editor(choose, runtime, left_meta, right_meta, left, right, linked):
             r=(right.get(key) or {}).get('groups',{})
             value={'version':1,'groups':{ident:choose(('Restriction group names',f'Group {ident}'),ABSENT,
                          l.get(ident,ABSENT),r.get(ident,ABSENT)) for ident in sorted(set(l)|set(r))}}
+        elif key == 'mapBackdrops':
+            l, r = left.get(key) or {}, right.get(key) or {}
+            value = {}
+            for name in sorted(l.keys() | r.keys()):
+                ident = choose(('Map backdrops', name), ABSENT, l.get(name, ABSENT), r.get(name, ABSENT))
+                if ident is not ABSENT:
+                    value[name] = ident
         else:
             value=choose(('Project settings',key),ABSENT,a,b)
         if value is not ABSENT:

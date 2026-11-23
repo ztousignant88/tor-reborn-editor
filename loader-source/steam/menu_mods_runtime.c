@@ -171,6 +171,7 @@ static int mm_install_fast_forward(void){
 #include "modules/archer_range.c"
 #include "modules/buff_card_spawns.c"
 #include "modules/starting_status.c"
+#include "modules/world_map_battles.c"
 #include "modules/versus_pilot.c"
 #define GUEST_CONTROL_STEAM
 #include "../guest_control.h"
@@ -210,6 +211,7 @@ static DWORD WINAPI mm_initialize(void *module){
     mm_base=(unsigned char*)GetModuleHandleW(0);IMAGE_NT_HEADERS64 *nt=(void*)(mm_base+((IMAGE_DOS_HEADER*)mm_base)->e_lfanew);
     if(nt->FileHeader.TimeDateStamp!=MM_TIMESTAMP||nt->OptionalHeader.SizeOfImage!=MM_IMAGE_SIZE){mm_log("Disabled: unsupported game version.\r\n");return 0;}
     wcscpy(config,mm_log_path);slash=wcsrchr(config,L'\\');wcscpy(slash+1,L"menu-mods.ini");
+    mm_install_world_map_battles(config);
     mm_install_guest_control(config);
     const int equipment_expanded = GetPrivateProfileIntW(L"ModPreparationEquipment", L"Enabled", 0, config) != 0;
     if (GetPrivateProfileIntW(L"BattleCapacity", L"Enabled", 0, config)) {

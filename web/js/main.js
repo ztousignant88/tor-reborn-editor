@@ -5,8 +5,11 @@ import { GameTables, TEAMS, ELEMENTS } from './game/tables.js';
 import { FIELD, LARGEST_STOCK_BATTLE, encodeField, readField } from './game/entryunit.js';
 import { displayHeight } from './game/bgmap.js';
 import { playerStartTiles } from './game/battlepreview.js';
-import { loadAllBattles, History, newUnit, saveBattles } from './app/battles.js';
+import { BattleDoc, loadAllBattles, History, newUnit, saveBattles } from './app/battles.js';
+import { loadDat } from './game/datfile.js';
+import { installWorldMap } from './app/world-map.js';
 import { MapCatalog } from './app/maps.js';
+import { forgetMapTable } from './game/maptable.js';
 import { MapView } from './ui/mapview.js';
 import { MapView3D } from './ui/mapview3d.js';
 import { SceneView } from './ui/scene3d.js';
@@ -40,6 +43,53 @@ installVersus(() => state.tables?.lists?.ai ?? [], () => projects.run('apply'), 
   await $('#integrated-mods-btn').onclick();
   await dataEditor?.showIntegratedMods(true, 'versus');
 }, syncVersusExpansion);
+const openWorldMap = installWorldMap({
+  battle: async (path) => {
+    const file = path.split('/').at(-1);
+    const doc = state.battles.find(item => item.fileName === file);
+    const roster = doc?.dirty ? doc : new BattleDoc(await loadDat(path), file);
+    state.battles = [...state.battles.filter(item => item !== doc), roster].sort((a, b) => a.number - b.number);
+    state.tables?.observeSprites(state.battles);
+    await $('#modes button[data-mode="battles"]').onclick();
+    await openBattle(roster);
+  },
+  map: async (id) => {
+    await $('#modes button[data-mode="maps"]').onclick();
+    await mapEditor.openMap(id);
+    if (mapEditor.map?.id !== id) throw new Error('Could not open this event’s map.');
+  },
+  cutscene: async (id) => {
+    await $('#modes button[data-mode="cutscenes"]').onclick();
+    const file = cutscenes.files.find(row => row.id === id);
+    if (!file) throw new Error('Could not find the linked cutscene.');
+    await cutscenes.openScene(file);
+    if (cutscenes.file?.id !== id) throw new Error('Could not open the linked cutscene.');
+  },
+}, async (world) => {
+  const info = await source.info();
+  if (info.project !== state.info?.project || info.dataRoot !== state.info?.dataRoot) return;
+  const encounterMaps = new Set(catalog.customEncounters().map(row => row.map));
+  const previousRosters = new Set((state.info.encounterLinks || []).map(link => link.roster));
+  state.info = info;
+  dataEditor?.menuMods?.syncWorldEventExpansion(world.eventExpansionEnabled, world.eventExpansionRequired);
+  updateToolbar();
+  catalog.setScope(info);
+  for (const row of catalog.customEncounters()) encounterMaps.add(row.map);
+  forgetMapTable();
+  mapEditor?.backdrops.invalidate();
+  await catalog.refreshEncounterMaps(encounterMaps);
+  if (cutscenes) await cutscenes.open(true);
+  const links = [...new Set((info.encounterLinks || []).map(link => link.roster))];
+  const missing = links.filter(key => !state.battles.some(doc => doc.key === key));
+  const newBattles = await Promise.all(missing.map(async key =>
+    new BattleDoc(await loadDat('battle/entry/' + key + '.dat'), key + '.dat')));
+  state.battles = state.battles.filter(doc => !previousRosters.has(doc.key) || links.includes(doc.key) || doc.dirty);
+  state.battles.push(...newBattles);
+  state.battles.sort((a, b) => a.number - b.number);
+  state.tables?.observeSprites(state.battles);
+  renderBattleList();
+  if (state.doc && !state.battles.includes(state.doc) && state.battles[0]) await openBattle(state.battles[0]);
+});
 versusSettings.addEventListener('message', event => syncVersusExpansion(event.data));
 
 function syncVersusExpansion(project) {
@@ -835,7 +885,7 @@ const sync = new BattleSync({
   freeTile: (doc, x, y) => freeTileIn(doc, x, y), toast, setStatus, onChange: updateToolbar,
 });
 
-const modeButtons = document.querySelectorAll('#modes button, #integrated-mods-btn');
+const modeButtons = document.querySelectorAll('#modes button[data-mode], #integrated-mods-btn');
 function highlightMode(mode) {
   for (const button of modeButtons) button.classList.toggle('on', button.dataset.mode === mode);
 }
@@ -892,6 +942,7 @@ function openDataEditor() {
     const editor = new DataEditor($('#data-layout'), { tables: () => state.tables, lang: () => $('#lang').value, toast, setStatus,
       onChange: () => { state.tables?.updateProjectOptions(editor.menuMods); updateToolbar(); }, readOnly: () => !!state.info?.readOnly,
       createModProject: () => projects.saveAs(),
+      openWorldMap,
       onOpenData: () => { state.mode = 'data'; highlightMode('data'); } });
     await editor.open();
     dataEditor = editor;
@@ -917,7 +968,8 @@ function pendingChanges() {
   // stage unit counts live in the battle data: Classes & items saves them when it is open
   const data = dataEditor?.dat ? (dataEditor.dirty ? 1 : 0) : (countsChanged() ? 1 : 0);
   const maps = mapEditor?.dirtyFiles().length ?? 0;
-  return { battles, scenes, data, maps, total: battles + scenes + data + maps };
+  const backdrops = mapEditor?.backdrops.changes.size ?? 0;
+  return { battles, scenes, data, maps, backdrops, total: battles + scenes + data + maps + backdrops };
 }
 
 function updateToolbar() {
@@ -935,6 +987,7 @@ function updateToolbar() {
   if (p.scenes) parts.push('scenes / rules');
   if (p.data) parts.push(dataEditor?.dat ? 'game data' : 'battle conditions / counts');
   if (p.maps) parts.push(`${p.maps} map${p.maps > 1 ? 's' : ''}`);
+  if (p.backdrops) parts.push(`${p.backdrops} backdrop${p.backdrops > 1 ? 's' : ''}`);
   $('#save').textContent = p.total ? `Save ${parts.join(' + ')} to ${state.info?.project ? 'project' : 'game'}` : 'Saved';
   $('#save').title = state.info?.project ? `Save into the project "${state.info.project}" (Ctrl+S). The game changes when you apply it (Files menu).` : 'Save to the game (Ctrl+S)';
   $('#undo').disabled = !history.done.length;
@@ -976,9 +1029,10 @@ async function savePending({ quiet = false } = {}) {
     p.scenes && 'cutscene and battle-rule changes',
     p.data && (dataEditor?.dat ? 'class/item/spell data and names' : 'battle conditions and unit counts (battle data)'),
     p.maps && `${p.maps} map file${p.maps > 1 ? 's' : ''} (tile data)`,
+    p.backdrops && 'map backdrop settings',
   ].filter(Boolean).join(', ');
   const project = state.info.project;
-  const groupSettingsOnly=p.data&&!p.battles&&!p.scenes&&!p.maps&&(dataEditor?.restrictionGroups?.dirty||dataEditor?.menuMods?.dirty)&&!dataEditor?.warrenRules?.dirty&&!dataEditor.battleChanged()&&!dataEditor.menuChanged()&&!dataEditor.renames.size&&!dataEditor.entryEdits.size;
+  const groupSettingsOnly=p.data&&!p.battles&&!p.scenes&&!p.maps&&!p.backdrops&&(dataEditor?.restrictionGroups?.dirty||dataEditor?.menuMods?.dirty)&&!dataEditor?.warrenRules?.dirty&&!dataEditor.battleChanged()&&!dataEditor.menuChanged()&&!dataEditor.renames.size&&!dataEditor.entryEdits.size;
   const ok = quiet || groupSettingsOnly || confirm(project
     ? `Save ${what} into the project "${project}"?\n\nThe game doesn't change until you apply the project (Files > Apply project to the game).`
     : `Write ${what} and update FileTable.bin in:\n${state.info.dataRoot}\n\nOriginals are backed up the first time a file is changed. (To keep edits apart from the game, use Files > New project or Save project as.)`);
@@ -1005,6 +1059,10 @@ async function savePending({ quiet = false } = {}) {
     } else if (p.battles || p.data) {
       const f = await battleDataFile(); // stage unit counts
       if (f) { await saveDataFiles([f]); await battleDataSaved(f.bytes, f.savedSize); saved.push(f.path); }
+    }
+    if (p.backdrops) {
+      await mapEditor.backdrops.save();
+      notes.push('Map backdrops saved.');
     }
     if (p.maps) saved.push(...await mapEditor.save());
     toast(!saved.length ? (notes.length?notes.join(' '):'Nothing to save: everything is as it was.')

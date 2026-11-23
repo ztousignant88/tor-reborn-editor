@@ -123,6 +123,12 @@ export class MenuMods{
   if(this.value.expandedBattleLimit===saved.expandedBattleLimit)this.value.expandedBattleLimit=enabled;
   this.original=JSON.stringify({...saved,expandedBattleLimit:enabled});
  }
+ syncWorldEventExpansion(enabled,required){
+  const saved=JSON.parse(this.original);
+  if(required||this.value.worldEventExpansion===saved.worldEventExpansion)this.value.worldEventExpansion=enabled;
+  this.original=JSON.stringify({...saved,worldEventExpansion:enabled});
+  if(this.saved)this.saved.worldEventExpansionRequired=required;
+ }
  get enemyLoadoutsEnabled(){return !!this.value.enemyItemPool||!!proficiencyMode(this.value)||Object.keys(this.value.enemyEquipmentOverrides).length>0||[...enemyLoadoutOptions,...enemyEquipmentOptions].some(([key])=>this.value[key]);}
  get enemyLoadoutsChanged(){
   const saved=JSON.parse(this.original);
@@ -343,10 +349,14 @@ export class MenuMods{
    needsProject?'Create or load a project to configure this mod.':'';
   const toggle=(field,label,about,locked=false)=>`<label class="menu-mod-option"><input type="checkbox" data-class-option="${field}" ${this.value[field]?'checked':''} ${disabled||locked?'disabled':''}><span><b>${label}</b><small>${about}</small></span></label>`;
   const applied=JSON.parse(this.original).specialClassChange;
+  const eventsSupported=this.info.expandedBattlesSupported&&typeof this.saved?.settings?.worldEventExpansion==='boolean';
+  const eventsRequired=this.saved?.worldEventExpansionRequired;
   detail.innerHTML=`<div class="data-head"><div><h1>${title}</h1><p class="muted">Integrated mods · Project settings</p></div></div>
    ${unavailable?`<p class="hint" role="status">${unavailable}</p>`:''}
    ${supported&&needsProject&&!readOnly?'<button data-class-new-project>Create project…</button>':''}
    ${prep?toggle(key,'Enable Mod Preparation',this.value.specialClassChange?'Required while Special Class Change is enabled.':'Enables the preparation layer for this project.',this.value.specialClassChange)+
+    toggle('worldEventExpansion','World Map Event Expansion',!eventsSupported?'Requires Steam 1.0.8.0.':eventsRequired?
+     'In use. Remove events in expanded slots in World Map before turning this off.':'Raises the World Map limit to 39 custom events.',!eventsSupported||eventsRequired)+
     '<section data-prep-capacity></section><section data-community-groups></section>':
     toggle(key,'Enable Special Class Change','Enables Mod Preparation for this project. Adds individual special-character class lists, marks and Templar variants.')+
     toggle('advancedBeastFamilies','Link ordinary and advanced beast families','Allows class changes between forms within the same beast family.',!this.value.specialClassChange)+

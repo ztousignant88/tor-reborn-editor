@@ -11,6 +11,7 @@ import { loadDat } from './datfile.js';
 import { view } from '../lib/pakd.js';
 
 let table = null;
+export function forgetMapTable() { table = null; }
 
 /** map number -> [{ id: 'bg206_01_c0_t00', name, variant }] (base version first). */
 export function loadMapTable() {

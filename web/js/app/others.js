@@ -31,12 +31,20 @@ export class OthersEditor{
       ['Warren Report', 8000],
       ['AI editor', AI_CATEGORY],
       ['Formulas', FORMULA_CATEGORY],
+      ['World Map', this.ed.ctx.openWorldMap],
     ];
     for (const [name, id, count] of categories) {
       const button = document.createElement('button');
+      button.type = 'button';
       button.className = 'data-item others-category';
       button.innerHTML = `<span class="data-name">${name}</span>${count === undefined ? '' : `<span class="picker-id">${count}</span>`}`;
-      button.onclick = () => navigate(id);
+      if (typeof id === 'function') {
+        button.setAttribute('aria-haspopup', 'dialog');
+        button.setAttribute('aria-controls', 'world-map');
+        button.onclick = id;
+      } else {
+        button.onclick = () => navigate(id);
+      }
       list.append(button);
     }
     return;

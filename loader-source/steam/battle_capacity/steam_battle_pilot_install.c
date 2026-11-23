@@ -83,6 +83,22 @@ static void *secondary_target_entry(void *battle, uint32_t coordinate, unsigned 
     return bc31_secondary_tile_target(find_tile_target, battle, coordinate, count);
 }
 
+static void *effect_object_entry(const uint8_t *battle, unsigned id)
+{
+    if (!battle || id >= OBJECT_LIST_LIMIT)
+        return NULL;
+    void *const *objects;
+    memcpy(&objects, battle + CONTEXT_OBJECT_LIST, sizeof(objects));
+    return objects ? objects[id] : NULL;
+}
+
+static void deactivate_scene_object(const uint8_t *battle, unsigned id)
+{
+    uint8_t *object = effect_object_entry(battle, id);
+    if (object)
+        object[UNIT_ACTIVE] = 0;
+}
+
 static void *effect_actor_entry(const uint8_t *battle, unsigned id)
 {
     /* Effect descriptors carry battle slots. The extra actors register after
@@ -97,9 +113,7 @@ static void *effect_actor_entry(const uint8_t *battle, unsigned id)
         }
         return NULL;
     }
-    void *const *objects;
-    memcpy(&objects, battle + CONTEXT_OBJECT_LIST, sizeof(objects));
-    return objects && id < OBJECT_LIST_LIMIT ? objects[id] : NULL;
+    return effect_object_entry(battle, id);
 }
 
 static unsigned condition_roster_entry(uint8_t *rows)
@@ -375,11 +389,13 @@ static int install_capacity(uint8_t *image, size_t image_size, int equipment_own
                                     image + restore_unit_continuation);
     uint8_t *collect = append_relay(&cursor, end, collect_unit_prefix, sizeof(collect_unit_prefix) - 1,
                                     image + collect_unit_continuation);
-    uint8_t calls[COUNT(native_relays)][7];
+    uint8_t calls[COUNT(native_relays)][18];
     if (!restore || !collect)
         goto unavailable;
     for (size_t i = 0; i < COUNT(native_relays); ++i) {
         const struct CallRelay *hook = &native_relays[i];
+        if (hook->length < 5 || hook->length > sizeof(calls[i]))
+            goto unavailable;
         void *target = hook->adapter ? hook->adapter : (void *)(image + hook->native_target);
         uint8_t *relay = append_relay(&cursor, end, hook->prefix, hook->prefix_length, target);
         if (!relay)

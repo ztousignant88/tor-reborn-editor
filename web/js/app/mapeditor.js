@@ -22,6 +22,7 @@ import { MapSides } from './mapsides.js';
 import { MapStamp } from './mapstamp.js';
 import { MapLibrary } from './maplibrary.js';
 import { MapPicker } from './mappicker.js';
+import { MapBackdrops } from './mapbackdrops.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -41,6 +42,7 @@ export class MapEditor {
     this.stamp = new MapStamp(this);
     this.library = new MapLibrary(this);
     this.picker = new MapPicker(this);
+    this.backdrops = new MapBackdrops(this);
     this.lookWithTerrain = true; // a new terrain brings that terrain's look
     this.sourceMaps = new Map(); // other maps' files, read for their looks and objects
   }
@@ -89,7 +91,7 @@ export class MapEditor {
       </section>
       <aside class="inspector mp-side">
         <div class="tabs mp-tabs" role="tablist">
-          <button data-tab="tile" class="on" role="tab">Tile</button><button data-tab="blocks" role="tab">Blocks</button><button data-tab="objects" role="tab">Objects</button><button data-tab="brush" role="tab">Brush</button><button data-tab="sides" role="tab">Sides</button><button data-tab="stamp" role="tab">Stamp</button><button data-tab="library" role="tab">Library</button>
+          <button data-tab="tile" class="on" role="tab">Tile</button><button data-tab="blocks" role="tab">Blocks</button><button data-tab="objects" role="tab">Objects</button><button data-tab="brush" role="tab">Brush</button><button data-tab="sides" role="tab">Sides</button><button data-tab="stamp" role="tab">Stamp</button><button data-tab="library" role="tab">Library</button><button data-tab="backdrop" role="tab">Backdrop</button>
         </div>
         <div id="mp-inspector" class="mp-pane"></div>
         <div id="mp-palette" class="mp-pane mp-palette" hidden></div>
@@ -142,13 +144,14 @@ export class MapEditor {
       const i = this.info(m.id);
       const b = document.createElement('button');
       b.className = `battle${this.map?.id === m.id ? ' active' : ''}`;
-      const edited = this.files.get(m.id)?.dirty;
+      const edited = this.files.get(m.id)?.dirty || this.backdrops.changes.has(m.id.toLowerCase());
       const place = this.ctx.catalog.placeLabel(m.id);
+      const encounter = this.ctx.catalog.encounterForMap(m.id);
       const used = this.ctx.catalog.mapLinks(m.id);
       const uses = [used.battles.length && `${used.battles.length} battle${used.battles.length > 1 ? 's' : ''}`, used.scenes.length && `${used.scenes.length} cutscene${used.scenes.length > 1 ? 's' : ''}`].filter(Boolean).join(', ');
       b.title = [used.battles.length && `Battles: ${used.battles.join(', ')}`, used.scenes.length && `Cutscenes: ${used.scenes.join(', ')}`].filter(Boolean).join('\n');
-      b.innerHTML = `<span class="battle-title">${esc(m.id)}${edited ? ' <span class="dirty">●</span>' : ''}</span>
-        ${place ? `<span class="battle-sub">${esc(place)}</span>` : ''}
+      b.innerHTML = `<span class="battle-title">${esc(encounter?.title ?? m.id)}${edited ? ' <span class="dirty">●</span>' : ''}</span>
+        ${place ? `<span class="battle-sub">${esc(encounter ? m.id : place)}</span>` : ''}
         <span class="battle-sub">${m.width}×${m.depth}${i.numbers.length ? ` · map ${i.numbers.join(', ')}` : ''}${/_99_/.test(m.id) ? ' · cutscene' : ''}${uses ? ` · ${uses}` : ''}</span>`;
       b.onclick = () => this.openMap(m.id);
       list.append(b);
@@ -182,8 +185,9 @@ export class MapEditor {
 
   renderHeader() {
     const i = this.info(this.map.id);
-    this.root.querySelector('#mp-title').textContent = this.map.id;
-    const place = this.ctx.catalog.placeLabel(this.map.id);
+    const encounter = this.ctx.catalog.encounterForMap(this.map.id);
+    this.root.querySelector('#mp-title').textContent = encounter?.title ?? this.map.id;
+    const place = encounter ? this.map.id : this.ctx.catalog.placeLabel(this.map.id);
     this.root.querySelector('#mp-meta').textContent = `${place ? `${place} · ` : ''}${this.map.width}×${this.map.depth}${i.numbers.length ? ` · map number ${i.numbers.join(', ')}` : ''}`;
   }
 
@@ -404,6 +408,7 @@ export class MapEditor {
     else if(this.tab==='sides') this.sides.render(pal);
     else if(this.tab==='stamp') this.stamp.render(pal);
     else if(this.tab==='library') this.library.render(pal);
+    else if(this.tab==='backdrop' && this.map) void this.backdrops.render(pal, this.map.id);
     else this.palette.render(pal, this.tab).catch((err) => { console.error(err); this.ctx.toast(err.message, true); });
   }
 

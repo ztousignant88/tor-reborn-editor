@@ -27,6 +27,8 @@ import class_change
 import dorgalua_xl
 import integrated_content
 import battle_encounters
+import map_backdrops
+import world_map
 import weapon_mods
 import modprep_groups
 import modprep_sets
@@ -238,7 +240,8 @@ class EditorConfig:
                     sizes[rel] = base.stat().st_size
             sizes.update({rel: entry["size"] for rel, entry in meta.get("files", {}).items()})
             sizes.update({rel: len(data) for rel, data in (content or {}).items()})
-            encounters = [entry for entry in battle_encounters.registrations(menu_runtime.project_settings(meta))
+            options = menu_runtime.project_settings(meta)
+            encounters = [entry for entry in battle_encounters.registrations(options, world_map.custom(options, meta.get('editor', {})))
                           if entry['path'] in (content or {})]
             registrations = art_registry.registrations(meta.get("editor", {}).get("artEntries")) + encounters
             table = art_registry.reconcile(table, registrations, sizes, applied.get("artEntries", []))
@@ -296,6 +299,7 @@ class Handler(SimpleHTTPRequestHandler):
             if route == "/api/info":
                 state = self.config.state()
                 project = self.config.open_project()
+                project_editor = self.config.project(project).get("editor", {}) if project else {}
                 try:
                     menu_options = menu_runtime.selected(self.config, project)
                 except ValueError:
@@ -327,7 +331,8 @@ class Handler(SimpleHTTPRequestHandler):
                     "versusEnabled": bool(project and menu_options[versus.MOD_KEY]),
                     "expandedBattleUnitLimit": battle_encounters.CAPACITY,
                     "battleUnitLimit": battle_encounters.CAPACITY if menu_options[battle_encounters.KEY] else battle_encounters.STOCK_CAPACITY,
-                    "encounterLinks": battle_encounters.links(menu_options if project else (state.get('menuRuntime') or {}).get('settings', {})),
+                    "encounterLinks": battle_encounters.links(menu_options if project else (state.get('menuRuntime') or {}).get('settings', {}),
+                                                               world_map.custom(menu_options, project_editor) if project else None),
                     "enemyLevelsVersion": 1,
                     "levelCap99Version": 1,
                     "levelCap99Enabled": menu_options["levelCap99"],
@@ -351,6 +356,10 @@ class Handler(SimpleHTTPRequestHandler):
             if route == "/api/preview-alignment":
                 path = self.config.project_root / ".preview-alignment.json"
                 return self._json(json.loads(path.read_text(encoding="utf-8")) if path.exists() else {})
+            if route == "/api/world-map":
+                return self._world_map()
+            if route == "/api/map-backdrops":
+                return self._map_backdrops()
             if route == "/api/list":
                 return self._list()
             if route == "/api/file":
@@ -373,7 +382,7 @@ class Handler(SimpleHTTPRequestHandler):
         except FileNotFoundError:
             return self._error(HTTPStatus.NOT_FOUND, "file not found")
         except (OSError, ValueError) as e:
-            if route.startswith((save_editor.API, versus.API)) and isinstance(e, ValueError):
+            if (route.startswith((save_editor.API, versus.API)) or route in ("/api/world-map", "/api/map-backdrops")) and isinstance(e, ValueError):
                 return self._error(HTTPStatus.UNPROCESSABLE_ENTITY, str(e))
             return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, str(e))
 
@@ -386,6 +395,10 @@ class Handler(SimpleHTTPRequestHandler):
                 return versus.post(self, route, _atomic_replace)
             if self.config.read_only:
                 return self._error(HTTPStatus.FORBIDDEN, "server started with --readonly")
+            if route == "/api/world-map":
+                return self._world_map(save=True)
+            if route == "/api/map-backdrops":
+                return self._map_backdrops(save=True)
             if route == save_editor.API + "slot":
                 return save_editor.write(self, _atomic_replace)
             if route == "/api/menu-mods":
@@ -470,11 +483,143 @@ class Handler(SimpleHTTPRequestHandler):
         except FileNotFoundError as e:
             return self._error(HTTPStatus.NOT_FOUND, str(e))
         except (OSError, ValueError) as e:
-            if (route == save_editor.API + "slot" or route.startswith(versus.API)) and isinstance(e, ValueError):
+            if (route in (save_editor.API + "slot", "/api/world-map", "/api/map-backdrops") or route.startswith(versus.API)) and isinstance(e, ValueError):
                 return self._error(HTTPStatus.UNPROCESSABLE_ENTITY, str(e))
             return self._error(HTTPStatus.INTERNAL_SERVER_ERROR, str(e))
 
     # ---- endpoints -----------------------------------------------------
+    def _world_map(self, save=False):
+        config = self.config
+        body = None
+        if save:
+            length = int(self.headers.get("Content-Length", "0"))
+            if not 0 < length <= 10 * 1024 * 1024:
+                raise ValueError("Invalid world map project data.")
+            body = json.loads(self.rfile.read(length))
+            if not isinstance(body, dict):
+                raise ValueError("Invalid world map project settings.")
+        with config.write_lock:
+            name, state = config.open_project(), config.state()
+            meta = config.project(name) if name else {}
+            value = menu_runtime.project_settings(meta)
+            editor = meta.get("editor", {})
+            saved = world_map.edits(editor.get(world_map.KEY))
+            revision = world_map.revision(saved, value)
+            if save:
+                if not name or body.get("project") != name:
+                    raise ValueError("Open the project where you want to save these world map changes.")
+                if body.get("revision") != revision:
+                    raise ValueError("This project's world map changed. Reopen it before saving.")
+                updated = world_map.edits(body.get("changes"))
+                editor = meta.setdefault("editor", {})
+                rosters = editor.get(battle_encounters.ROSTER_EDITS, {})
+                old_fights = world_map.custom(value, editor)
+                enable_expansion = body.get("enableExpansion", False)
+                if type(enable_expansion) is not bool:
+                    raise ValueError("Invalid world map expansion choice.")
+                if enable_expansion:
+                    value[world_map.EXPANSION] = True
+                    menu_runtime.validate_world_event_expansion(config, name, value)
+                world_map.validate_expansion(updated, value)
+                if value[world_map.EXPANSION]:
+                    editor["menuMods"] = value
+                files = meta.get("files", {})
+                discarded_assets = set()
+                for slot, event in saved["events"].items():
+                    key = "world-" + slot
+                    if slot not in updated["events"]:
+                        discarded_assets.update(world_map.asset_paths({key: old_fights[key]}))
+                    if updated["events"].get(slot, {}).get("arena") != event["arena"]:
+                        rosters.pop(key, None)
+                        discarded_assets.add(battle_encounters.map_path(old_fights[key]))
+                for rel in discarded_assets:
+                    files.pop(rel, None)
+                backdrops = editor.get(map_backdrops.KEY, {})
+                for slot in saved["events"].keys() - updated["events"].keys():
+                    path = battle_encounters.map_path(old_fights["world-" + slot])
+                    backdrops.pop(Path(path).stem.lower(), None)
+                if not backdrops:
+                    editor.pop(map_backdrops.KEY, None)
+                if updated["locations"] or updated["events"]:
+                    editor[world_map.KEY] = updated
+                else:
+                    editor.pop(world_map.KEY, None)
+                self._project_payload(name, meta, state, editor_view=True)
+                config.save_project(name, meta)
+                config._integrated_cache = None
+                for rel in discarded_assets:
+                    (config.project_dir(name) / "files" / rel).unlink(missing_ok=True)
+                return self._json({"saved": True, "revision": world_map.revision(updated, value),
+                                   "eventExpansionEnabled": value[world_map.EXPANSION],
+                                   "eventExpansionRequired": world_map.requires_expansion(editor)})
+            read = (self._project_payload(name, meta, state, editor_view=True, reader_only=True) if name
+                    else lambda path: config.resolve(path).read_bytes())
+            location_edits = editor.get(integrated_content.KEY, {}).get(battle_encounters.SYSTEM, {}).get("2")
+            edited_routes = None
+            if location_edits:
+                fights = battle_encounters.selected(value, world_map.custom(value, editor))
+                if fights:
+                    raw = read(battle_encounters.SYSTEM)
+                    defaults = [{key: field for key, field in fight.items()
+                                 if key not in ("unlockSource", "unlockFlag")} for fight in fights.values()]
+                    generated = battle_encounters.patch_system(raw, defaults)
+                    edited_routes = integrated_content.replay(battle_encounters.SYSTEM, raw, generated,
+                                                              {"2": location_edits})
+            view = world_map.view(read, value, editor, edited_routes)
+        return self._json(view | {"project": name, "revision": revision, "readOnly": config.read_only,
+                                  "eventExpansionSupported": menu_runtime.battle_capacity_supported(config)})
+
+    def _map_backdrops(self, save=False):
+        config = self.config
+        body = self._body() if save else None
+        if save and not isinstance(body, dict):
+            raise ValueError("Invalid map backdrop update.")
+        with config.write_lock:
+            name, state = config.open_project(), config.state()
+            meta = config.project(name) if name else {}
+            editor = meta.get("editor", {})
+            value = menu_runtime.project_settings(meta)
+            custom = world_map.custom(value, editor) if name else {}
+            read = (self._project_payload(name, meta, state, editor_view=True, reader_only=True) if name
+                    else lambda rel: config.resolve(rel).read_bytes())
+            path = config.resolve(map_backdrops.ARCHIVE)
+            backdrop, system = read(map_backdrops.ARCHIVE), read(map_backdrops.SYSTEM)
+            file_table = (config.data_root / TABLE_NAME).read_bytes()
+            templates = {
+                Path(battle_encounters.map_path(fight)).stem.lower(): fight["sourceMap"].lower()
+                for fight in custom.values()
+            }
+            saved = map_backdrops.settings(editor.get(map_backdrops.KEY))
+            def revision():
+                settings = json.dumps([templates, saved], sort_keys=True).encode()
+                return _sha1(backdrop + system + settings)
+            view = map_backdrops.view(backdrop, system, file_table, templates)
+            if save:
+                self._check_file_scope(name, body.get("scope"))
+                if body.get("revision") != revision():
+                    raise ValueError("Map backdrops changed. Reopen the project before saving.")
+                updated = map_backdrops.settings(body.get("changes"), allow_reset=bool(name))
+                choices = {row["id"] for row in view["choices"]}
+                if updated.keys() - view["defaults"].keys() or any(ident is not None and ident not in choices
+                                                                  for ident in updated.values()):
+                    raise ValueError("A selected map or backdrop is unavailable.")
+                if name:
+                    saved = {key: ident for key, ident in (saved | updated).items() if ident is not None}
+                    if saved:
+                        meta.setdefault("editor", {})[map_backdrops.KEY] = saved
+                    else:
+                        editor.pop(map_backdrops.KEY, None)
+                    config.save_project(name, meta)
+                    config._integrated_cache = None
+                elif updated:
+                    changed = map_backdrops.build(backdrop, system, file_table, {}, updated)
+                    if changed != backdrop:
+                        self._write_game_data(path, changed, backdrop, file_table)
+                        backdrop = changed
+                        view = map_backdrops.view(backdrop, system, file_table, {})
+        return self._json(view | {"project": name, "scope": self._file_scope(name),
+                                  "revision": revision(), "saved": saved})
+
     def _list(self):
         folder = self.config.resolve(self._query().get("dir", ""))
         entries = []
@@ -493,8 +638,10 @@ class Handler(SimpleHTTPRequestHandler):
                 if path.parent == folder and path.name.casefold() not in known:
                     entries.append({"name": path.name, "size": info["size"]})
                     known.add(path.name.casefold())
-            if self.config.rel(folder) in ('battle/entry', 'event/scene'):
-                encounters = battle_encounters.registrations(menu_runtime.selected(self.config, name))
+            if self.config.rel(folder) in ('battle/entry', 'event/scene', 'bg'):
+                meta = self.config.project(name)
+                options = menu_runtime.project_settings(meta)
+                encounters = battle_encounters.registrations(options, world_map.custom(options, meta.get('editor', {})))
                 if encounters:
                     content, _, _ = self._integrated_view()
                     for entry in encounters:
@@ -728,20 +875,28 @@ class Handler(SimpleHTTPRequestHandler):
         if name:
             result = self._write_to_project(name, path, data)
         else:
-            result = {"backedUp": self._backup(path)}
-            if table != old_table:
-                self._backup(table_path)
-            try:
-                _atomic_replace(path, data)
-                if table != old_table:
-                    _atomic_replace(table_path, table)
-            except OSError:
-                _atomic_replace(path, current)
-                if table_path.read_bytes() != old_table:
-                    _atomic_replace(table_path, old_table)
-                raise
+            result = self._write_game_data(path, data, current, old_table, table)
         self._json({"ok": True, "project": name, "size": len(data),
                     "revision": "raw:" + _sha1(data), "scope": self._file_scope(name), **result})
+
+    def _write_game_data(self, path, data, current, old_table, table=None):
+        table_path = self.config.data_root / TABLE_NAME
+        if table is None:
+            table = bytearray(old_table)
+            _set_recorded_size(table, self.config.rel(path), len(data))
+        result = {"backedUp": self._backup(path)}
+        if table != old_table:
+            self._backup(table_path)
+        try:
+            _atomic_replace(path, data)
+            if table != old_table:
+                _atomic_replace(table_path, table)
+        except OSError:
+            _atomic_replace(path, current)
+            if table_path.read_bytes() != old_table:
+                _atomic_replace(table_path, old_table)
+            raise
+        return result
 
     def _write_to_project(self, name: str, path: Path, data: bytes, meta=None) -> dict:
         """A save while a project is open: the file goes into the project, never the game.
@@ -776,16 +931,23 @@ class Handler(SimpleHTTPRequestHandler):
     def _save_integrated_edit(self, name, path, read, generated, effective, data, text_keys=()):
         rel = self.config.rel(path)
         meta = self.config.project(name)
+        options = menu_runtime.project_settings(meta)
+        custom = world_map.custom(options, meta.get('editor', {}))
+        if rel in world_map.asset_paths(custom):
+            self._write_to_project(name, path, data, meta)
+            self.config._integrated_cache = None
+            return {"size": len(data), "view": _sha1(data)}
         if rel in battle_encounters.ROSTERS:
-            key, = (key for key, fight in battle_encounters.selected(menu_runtime.project_settings(meta)).items()
-                    if fight['path'] == rel)
-            battle_encounters.roster_count(data)
+            (key, fight), = ((key, fight) for key, fight in battle_encounters.selected(options, custom).items()
+                             if fight['path'] == rel)
+            limit = battle_encounters.CAPACITY if options[battle_encounters.KEY] else battle_encounters.STOCK_CAPACITY
+            battle_encounters.roster_count(data, limit - fight.get('players', battle_encounters.PLAYERS))
             meta.setdefault('editor', {}).setdefault(battle_encounters.ROSTER_EDITS, {})[key] = data.hex()
             self.config.save_project(name, meta)
             self.config._integrated_cache = None
             return {"size": len(data), "view": _sha1(data)}
         if rel.startswith(('event/scene/', 'menu/mapname/')):
-            raise ValueError('This built-in encounter archive is generated from its Hard Mode toggle')
+            raise ValueError('This archive is generated from the project’s world map or encounter settings.')
         raw = read(rel)
         original_meta = json.loads(json.dumps(meta))
         edits = meta.setdefault("editor", {}).setdefault(integrated_content.KEY, {})
@@ -813,7 +975,9 @@ class Handler(SimpleHTTPRequestHandler):
     def _integrated_key(self, name):
         config = self.config
         files = (config.project_dir(name)/PROJECT_FILE, config.project_root/STATE_FILE,
-                 *(config.data_root / rel for rel in (TABLE_NAME, class_change.BATTLE, class_change.MENU)),
+                 Path(map_backdrops.__file__),
+                 *(config.data_root / rel for rel in (TABLE_NAME, class_change.BATTLE, class_change.MENU,
+                                                      map_backdrops.ARCHIVE, map_backdrops.SYSTEM)),
                  *sorted(battle_encounters.ROOT.iterdir()))
         return (name, *(p.stat().st_mtime_ns if p.is_file() else None for p in files))
 
@@ -844,7 +1008,8 @@ class Handler(SimpleHTTPRequestHandler):
         error = None
         try:
             value = menu_runtime.project_settings(meta)
-            if any(value[k] for k in integrated_content.SETTINGS):
+            if (any(value[k] for k in integrated_content.SETTINGS) or world_map.active(meta)
+                    or meta.get("editor", {}).get(map_backdrops.KEY)):
                 stored = _content_cache_load(self, name, key)
                 if stored:
                     content, defaults = stored
@@ -872,10 +1037,16 @@ class Handler(SimpleHTTPRequestHandler):
 
     @staticmethod
     def _integrated_edits(meta, generated, read):
-        saved = meta.get("editor", {}).get(integrated_content.KEY, {})
+        editor = meta.get("editor", {})
+        saved = editor.get(integrated_content.KEY, {})
         text_keys = Handler._integrated_text_keys(generated, read) if any(rel.startswith("localize/") for rel in saved) else ()
-        return {rel: integrated_content.replay(rel, read(rel), data, saved[rel], text_keys if rel.startswith("localize/") else ()) if rel in saved else data
-                for rel, data in generated.items()}
+        result = {rel: integrated_content.replay(rel, read(rel), data, saved[rel], text_keys if rel.startswith("localize/") else ()) if rel in saved else data
+                  for rel, data in generated.items()}
+        system = battle_encounters.SYSTEM
+        if system in saved and system in result:
+            fights = world_map.custom(menu_runtime.project_settings(meta), editor)
+            result[system] = battle_encounters.patch_event_unlocks(result[system], fights.values())
+        return result
 
     # ---- projects ------------------------------------------------------
     def _body(self) -> dict:
@@ -1008,7 +1179,7 @@ class Handler(SimpleHTTPRequestHandler):
             progress = lambda percent, message: None
         files = meta.get("files", {})
         source = self.config.project_dir(name) / "files"
-        value = menu_runtime.selected(self.config, name)
+        value = menu_runtime.project_settings(meta)
         applied = state.get("applied") or {}
         if value["specialClassChange"] and not (state.get("menuRuntime") or {}).get("files"):
             game = menu_runtime.game_root(self.config)
@@ -1113,19 +1284,37 @@ class Handler(SimpleHTTPRequestHandler):
         set_files = {}
         if value["dorgaluaXLFix"]:
             generated[class_change.BATTLE] = dorgalua_xl.build(effective(class_change.BATTLE))
-        if any(value[key] for key in battle_encounters.FIGHTS):
-            for entry in battle_encounters.registrations(value):
+        editor = meta.get('editor', {})
+        custom = world_map.custom(value, editor)
+        if any(value[key] for key in battle_encounters.FIGHTS) or world_map.active(meta):
+            owned_assets = world_map.asset_paths(custom)
+            assets = {}
+            for entry in battle_encounters.registrations(value, custom):
                 rel = entry['path']
+                if rel in owned_assets and rel in files:
+                    assets[rel] = read(rel)
+                    continue
                 try:
                     read(rel)
                 except FileNotFoundError:
                     continue
-                raise ValueError('A Hard Mode encounter needs this path, which the project already uses: ' + rel)
+                raise ValueError('An overworld encounter needs this path, which the project already uses: ' + rel)
             def encounter_input(rel):
                 # Some stock roster filenames have different case on disk.
                 return effective(self.config.rel(self.config.resolve(rel)))
 
-            generated.update(battle_encounters.build(encounter_input, value, meta.get('editor', {})))
+            generated.update(world_map.build(encounter_input, value, editor, assets, editor_view))
+        overrides = map_backdrops.settings(editor.get(map_backdrops.KEY))
+        if custom or overrides:
+            templates = {
+                Path(battle_encounters.map_path(fight)).stem.lower(): fight["sourceMap"].lower()
+                for fight in custom.values()
+            }
+            archive = read(map_backdrops.ARCHIVE)
+            changed = map_backdrops.build(archive, effective(map_backdrops.SYSTEM),
+                                          read(TABLE_NAME), templates, overrides)
+            if changed != archive:
+                generated[map_backdrops.ARCHIVE] = changed
         extra_text = {}
         if self._integrated_text_keys(generated, read):
             text_files = (self.config.rel(path) for path in self.config.resolve("localize").glob("LocalizeText_*.dat")) if editor_view else (
@@ -1181,7 +1370,8 @@ class Handler(SimpleHTTPRequestHandler):
             table = self.config.backup_root / TABLE_NAME
             if not table.is_file():
                 table = self.config.resolve(TABLE_NAME)
-            registrations = art_registry.registrations(meta.get("editor", {}).get("artEntries")) + battle_encounters.registrations(value)
+            editor = meta.get("editor", {})
+            registrations = art_registry.registrations(editor.get("artEntries")) + battle_encounters.registrations(value, world_map.custom(value, editor))
             files[TABLE_NAME] = art_registry.reconcile(table.read_bytes(), registrations, {n: len(b) for n,b in files.items()})
             section, sidecars = payload
             sets = modprep_sets.runtime(meta, value["equipmentSetBonuses"], value["equipmentSetFreeSkills"])
@@ -1299,7 +1489,8 @@ class Handler(SimpleHTTPRequestHandler):
                 raise ValueError("This project replaces character tables but omits installed project characters. Take the previous project's other files out, or build from that project first.")
             table_path = self.config.data_root / TABLE_NAME
             old_table = table_path.read_bytes()
-            registrations = art_registry.registrations(meta.get("editor", {}).get("artEntries")) + battle_encounters.registrations(value)
+            editor = meta.get("editor", {})
+            registrations = art_registry.registrations(editor.get("artEntries")) + battle_encounters.registrations(value, world_map.custom(value, editor))
             drop = [entry for entry in before.get("artEntries", []) if entry["path"] in removed]
             sizes = {rel: entry["size"] for rel, entry in files.items()}
             changes, written, reverted = [], [], []
@@ -1381,8 +1572,11 @@ class Handler(SimpleHTTPRequestHandler):
                     next_state["applied"]["permissionSetFiles"] = sorted(set_files)
                 if ai_files:
                     next_state["applied"]["aiChoiceFiles"] = sorted(ai_files)
-                if encounter_paths := battle_encounters.owned_paths(value):
-                    next_state['applied']['encounterFiles'] = sorted(encounter_paths)
+                encounter_paths = world_map.owned_paths(value, meta.get('editor', {}))
+                if map_backdrops.ARCHIVE in generated:
+                    encounter_paths.add(map_backdrops.ARCHIVE)
+                if encounter_paths:
+                    next_state['applied']['encounterFiles'] = sorted(encounter_paths & set(files))
                 progress(99, "Recording the applied project")
                 self.config.save_state(next_state)
             except Exception:

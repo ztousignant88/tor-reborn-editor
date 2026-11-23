@@ -65,6 +65,66 @@ body.read-only .ro-badge { display: inline; }
 .project-dialog::backdrop { background: rgba(0,0,0,0.5); }
 .project-dialog form { display: grid; gap: 10px; padding: 16px; }
 .project-dialog h2 { font-size: 15px; }
+
+.world-map-dialog {
+  width: min(1290px, calc(100vw - 32px));
+  max-height: calc(100dvh - 36px);
+  padding: 18px;
+}
+.world-map-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+.world-map-header h2 { margin: 0; font-size: 20px; }
+.world-map-header > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.world-map-content:not([hidden]) {
+  display: grid;
+  grid-template-columns: 185px minmax(300px, 1fr) 230px;
+  gap: 16px;
+  align-items: start;
+}
+.world-map-locations, .world-map-details { display: grid; gap: 10px; min-width: 0; }
+.world-map-details h3 { margin: 0 0 4px; font-size: 16px; }
+.world-map-details label { display: grid; gap: 4px; color: var(--muted); }
+.world-map-details input, .world-map-details select, .world-map-locations input { width: 100%; min-width: 0; }
+.world-map-location-list { display: grid; gap: 3px; max-height: min(45vh, 355px); overflow-y: auto; }
+.world-map-location-list button { text-align: left; padding: 5px 8px; }
+.world-map-location-list button[aria-pressed="true"] { border-color: #f7ce86; color: #f7ce86; }
+.world-map-coordinates { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.world-map-access { display: grid; grid-template-columns: max-content 1fr; gap: 6px 12px; margin: 0; }
+.world-map-access dt { color: var(--muted); }
+.world-map-access dd { margin: 0; }
+.world-map-assets { display: grid; gap: 4px; }
+.world-map-asset { display: grid; gap: 2px; text-align: left; overflow-wrap: anywhere; }
+.world-map-asset small { color: var(--muted); }
+.world-map-plane {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #445e65;
+  border-radius: 7px;
+  aspect-ratio: 16 / 9;
+  background:
+    linear-gradient(#83b2bd16 1px, transparent 1px) 50% 50% / 7.46% 12.74%,
+    linear-gradient(90deg, #83b2bd16 1px, transparent 1px) 50% 50% / 7.46% 12.74%,
+    radial-gradient(ellipse at 51% 57%, #2e4a45, #15292e 63%, #11212a);
+}
+.world-map-plane.placing { cursor: crosshair; outline: 1px solid #f7ce86; }
+.world-map-plane canvas, #world-map-markers { position: absolute; inset: 0; width: 100%; height: 100%; }
+#world-map-art { opacity: .77; }
+.world-map-marker {
+  position: absolute; transform: translate(-50%, -50%); width: 12px; height: 12px;
+  padding: 0; border-radius: 50%; border: 2px solid #b9d2bd; background: #29464c;
+  box-shadow: 0 0 0 1px #17333d;
+}
+.world-map-marker.encounter { border-radius: 3px; border-color: #f7ce86; background: #655033; }
+.world-map-marker.movable { cursor: grab; touch-action: none; }
+.world-map-plane.dragging, .world-map-plane.dragging .world-map-marker.movable { cursor: grabbing; user-select: none; }
+.world-map-marker:is(:hover, :focus-visible, [aria-pressed="true"], .dragged) {
+  z-index: 1; background: #f7ce86; border-color: #f7ce86; box-shadow: 0 0 0 3px #3c3325;
+}
+.world-map-marker.dragged { z-index: 2; }
+@media (max-width: 760px) {
+  .world-map-content:not([hidden]) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .world-map-view { grid-column: 1 / -1; grid-row: 1; }
+  .world-map-location-list { max-height: 230px; }
+}
 .project-dialog .hint { margin: 0; color: var(--muted); font-size: 12px; }
 .pd-list { display: grid; gap: 4px; max-height: 320px; overflow-y: auto; }
 .pd-item { display: grid; grid-template-columns: auto 1fr; column-gap: 8px; align-items: center; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; cursor: pointer; }
@@ -510,6 +570,9 @@ td.num { font-variant-numeric: tabular-nums; color: #cfcac0; }
 /* Maps: the right panel's tabs (Tile, Blocks, Objects) and the palettes */
 #maps-layout .mp-side { display: flex; flex-direction: column; overflow: hidden; }
 .tabs.mp-tabs { grid-template-columns: repeat(3, 1fr); padding: 8px 10px; border-bottom: 1px solid var(--line); flex: none; }
+.mp-backdrop { padding: 14px; }
+.mp-backdrop select { display: block; width: 100%; margin-top: 6px; }
+.mp-backdrop-preview canvas { display: block; max-width: 100%; height: auto !important; margin-top: 12px; border-radius: 4px; }
 .mp-pane { flex: 1; min-height: 0; overflow-y: auto; }
 .mp-pane[hidden] { display: none; }
 .mp-palette { display: flex; flex-direction: column; overflow: hidden; }

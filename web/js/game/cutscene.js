@@ -415,7 +415,7 @@ export function sceneRecord(scene,part,draftIndex=null) {
 }
 
 /** Create the scene resource expected by a linked, previously scriptless chapter record. */
-export async function addBattleScenePart(scene,record) {
+export async function addBattleScenePart(scene,record,{opening=false}={}) {
   if(!record?.battleStage||!record.scene||record.stage!==Number(/_ST_(\d+)/i.exec(scene.fileName)?.[1]))throw new Error('A new cutscene needs an unambiguous battle-linked story record.');
   if(scene.entries.some(e=>e.id===record.scene))throw new Error('That scene resource ID is already occupied.');
   const template=await loadCutscene('C1_ST_010.dat'),donor=template.parts[0];
@@ -423,16 +423,39 @@ export async function addBattleScenePart(scene,record) {
   const part={entryId:record.scene,data,file,offset:-1,origLength:0,isNew:true,name:file.scripts[0].name,helpers:[],animations:[],castActors:[],
     bodyDurations:donor.bodyDurations,castActions:donor.castActions,weaponDurations:donor.weaponDurations};
   scene.entries.push({id:part.entryId,data});scene.entries.sort((a,b)=>a.id-b.id);scene.parts.push(part);
+  if (opening) finishBattleOpening(scene, part);
   return part;
 }
 
 const EMPTY_INDEX = new Uint8Array([0x49, 0x44, 0x58, 0x30, 0, 0, 0xFF, 0xFF, 0, 0, 0, 0, 0, 0, 0, 0]); // 'IDX0', no resources (as C1_ST_020 entry 0x8006)
 
+function addEmptyIndex(scene, part) {
+  const id = 0x8000 + part.entryId;
+  if (scene.entries.some(entry => entry.id === id)) return;
+  scene.entries.push({ id, data: EMPTY_INDEX.slice() });
+  scene.entries.sort((a, b) => a.id - b.id);
+  part.addedIndex = true;
+}
+
+// Start with the same screen transition as stock battle openings. Formation
+// leaves the field hidden until the scene runs this transition.
+export function finishBattleOpening(scene, part) {
+  addEmptyIndex(scene, part);
+  const main = part.file.scripts[0];
+  const fn = main.functions[main.events[0] >= 0 ? main.events[0] : 0];
+  const ops = functionOps(part.file, main, fn);
+  if (!ops.some(op => op.native === 2)) {
+    insertBefore(scene, part, null, [{ native: 2, args: [30] }, { native: 6, args: [] }]);
+  }
+  if (!ops.some(op => op.native === 1)) {
+    insertAtEnd(scene, part, [{ native: 1, args: [] }]);
+  }
+}
+
 /** A new, empty part for an in-battle event (chapter.js addBattleEvent), with the empty resource index stock parts have. */
 export async function addEventPart(scene, record) {
   const part = await addBattleScenePart(scene, record);
-  const id = 0x8000 + record.scene;
-  if (!scene.entries.some((e) => e.id === id)) { scene.entries.push({ id, data: EMPTY_INDEX.slice() }); scene.entries.sort((a, b) => a.id - b.id); }
+  addEmptyIndex(scene, part);
   part.addedEvent = true;
   // Stock in-battle parts end with native 1 before their return (the smallest,
   // C1_ST_020 cut_scene_1_120, is just a tutorial call, native 1, return).
@@ -505,7 +528,7 @@ export function restoreScripts(scene, snap) {
 }
 
 export function revertPart(scene, part) {
-  if(part.isNew){scene.entries=scene.entries.filter(e=>e.id!==part.entryId&&!(part.addedEvent&&e.id===0x8000+part.entryId));scene.parts=scene.parts.filter(p=>p!==part);return;}
+  if(part.isNew){scene.entries=scene.entries.filter(e=>e.id!==part.entryId&&!(part.addedIndex&&e.id===0x8000+part.entryId));scene.parts=scene.parts.filter(p=>p!==part);return;}
   const original = scene.originalPack.slice(part.offset, part.offset + part.origLength);
   setPartData(scene, part, original);
 }
@@ -531,6 +554,7 @@ export const COMMANDS = {
   waitWalk: (actor) => ({ native: 105, args: [actor] }),
   face: (actor, dir) => ({ native: 47, args: [actor, dir] }),
   talk: (actor, msg, box = 27) => ({ native: box, args: [actor, msg] }),
+  closeDialogue: () => ({ native: 44, args: [] }),
   wait: (frames) => ({ native: 0, args: [frames] }),
   notice: (msg) => ({ native: 268, args: [msg] }),
   // Show/hide: the game fades actors with 163 and 159 together (actor, alpha, frames), then 122 waits.
@@ -705,6 +729,7 @@ function toStep(native, args, base) {
   const a = args;
   const n = native;
   if (n === 0) return { ...base, kind: 'wait', frames: val(a[0]) ?? 0 };
+  if (n === 44) return { ...base, kind: 'closeDialogue' };
   if (TALK[n]) return { ...base, kind: 'talk', actor: val(a[0]), msg: val(a[1]), box: TALK[n] };
   // Reborn adds (actor, msg, flag) versions numbered 261 higher: 288-293 talk, 294-299 messages.
   if (TALK[n - 261]) return { ...base, kind: 'talk', actor: val(a[0]), msg: val(a[1]), box: TALK[n - 261] };
@@ -833,7 +858,7 @@ export function buildTimeline(part,{weaponForActor,bindBattleActor}={}) {
 }
 
 /** Steps the player stops at when stepping. */
-export const isStop = (s) => ['talk','narration','move','place','face','remove','anim','body','weapon','cast','death'].includes(s.kind);
+export const isStop = (s) => ['talk','narration','closeDialogue','move','place','face','remove','anim','body','weapon','cast','death'].includes(s.kind);
 
 /**
  * Actor state after applying steps[0..index]. `initial` (actor -> {x, y, dir})

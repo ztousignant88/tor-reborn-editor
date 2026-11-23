@@ -67,6 +67,35 @@
     </div>
   </header>
 
+  <dialog id="world-map" class="project-dialog world-map-dialog" aria-labelledby="world-map-title">
+    <header class="world-map-header">
+      <h2 id="world-map-title">World Map</h2>
+      <div>
+        <button id="world-map-save" class="primary" type="button" disabled>Save map changes</button>
+        <button id="world-map-close" class="ghost" type="button">Close</button>
+      </div>
+    </header>
+    <p id="world-map-status" class="hint" role="status"></p>
+    <div id="world-map-content" class="world-map-content" hidden>
+      <aside class="world-map-locations">
+        <label for="world-map-search">Locations</label>
+        <input id="world-map-search" type="search" placeholder="Find a location">
+        <div id="world-map-locations" class="world-map-location-list"></div>
+        <button id="world-map-add" class="primary" type="button">Add battle event…</button>
+        <span id="world-map-event-count" class="muted"></span>
+      </aside>
+      <div class="world-map-view">
+        <div id="world-map-plane" class="world-map-plane">
+          <canvas id="world-map-art" width="1600" height="900" aria-hidden="true" hidden></canvas>
+          <canvas id="world-map-roads" width="1600" height="900" aria-hidden="true"></canvas>
+          <div id="world-map-markers"></div>
+        </div>
+        <p class="hint">Drag a marker to move it. Its roads follow.</p>
+      </div>
+      <section id="world-map-details" class="world-map-details" aria-label="Location details"></section>
+    </div>
+  </dialog>
+
   <dialog id="versus" class="project-dialog versus-dialog" aria-labelledby="versus-title">
     <header class="versus-header">
       <h2 id="versus-title">Versus</h2>

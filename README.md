@@ -64,6 +64,18 @@ Open a project and go to **Integrated Mods → Hard Mode → Large battles**. **
 
 Under **Overworld encounters**, enable **The Final Showdown**, **The Walking Dead**, or both. Each fight enables the larger limit and allows 12 players against 50 enemies. The two roads branch from Tynemouth Hill, and both fights can be replayed after Tynemouth Hill is unlocked. Save the project, apply it, and restart the game. To remove either encounter, clear its toggle, save, and apply again.
 
+## World Map
+
+Open a project and choose **Stats & Values → Others → World Map**. Drag a marker to move it and its roads, or select a location to change its name or enter coordinates. Use **Add battle event** to place a replayable encounter on an available branch from Tynemouth Hill, choose its battlefield, and set 1–12 player deployment slots. The event copies the template terrain and starting enemies. The event name appears on the linked battle roster, battlefield map and pre-battle cutscene. Save the world map to open those links. On the cutscene link, choose the chapter and use **Add cutscene** to author that chapter's opening scene. Save your cutscene and terrain edits from the main editor. The east and west locations share slots with the two Hard Mode encounters. The southern location is independent.
+
+**Save map changes** stores the layout in the project. **Apply Project** writes it to your game. Remove an event or restore an original location in World Map, save, and apply again to take the change out of your game.
+
+**Integrated Mods → Mod Preparation → World Map Event Expansion** raises the limit to 39 custom events on Steam 1.0.8.0. World Map offers to enable it when you run out of standard event sites. Each event’s details show its campaign unlock trigger and connecting road separately. The three standard sites unlock with Tynemouth Hill. Each expanded site inherits the unlock flag of its assigned stock location.
+
+Select a custom event’s **Unlock condition** to choose a stock location opening, a campaign milestone, or one of 25 Warren Report Talk topics. A Warren Report trigger activates when you read the selected topic. Roads require both endpoints to be open. Select **Use event default** to restore the slot’s original trigger.
+
+In **Maps → Backdrop**, choose and preview the scenery that appears behind the battlefield. New events inherit their template’s backdrop. Save the backdrop change with the map, then apply the project to use it in game.
+
 ## Versus Mode
 
 Enable **Integrated Mods → Versus Mode** and save the project to unlock the top-bar **Versus** button. When you first open Versus, the editor offers to enable Expanded Battle Limit for 24 vs 24 and 30 vs 30 tournaments. You can decline and play 3 vs 3, 6 vs 6, or 12 vs 12. Apply the project and restart the game before queuing a fight.

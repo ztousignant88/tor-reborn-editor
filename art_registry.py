@@ -68,6 +68,9 @@ SCENE_DIRECTORY_PREFIXES = {
     906: 'C3c', 907: 'C4', 908: 'EP', 909: 'DLC',
 }
 MAP_NAME_LANGUAGES = ('ja-jp', 'en-us', 'fr-fr', 'de-de', 'es-es', 'zh-cn', 'zh-tw', 'ko-kr')
+WORLD_EVENT_CAPACITY = 39
+# The east and west legacy sites can be occupied by the two built-in fights.
+WORLD_EVENT_SITE_COUNT = WORLD_EVENT_CAPACITY + 2
 
 
 def registrations(value):
@@ -92,6 +95,9 @@ def registrations(value):
         elif directory == 1001:
             if not isinstance(path, str) or not re.fullmatch(r'battle/entry/entry_unit_\d{3,5}\.dat', path):
                 raise ValueError('Battle roster must be an entry_unit archive')
+        elif directory == 100:
+            if not 1394 <= ident < 1394 + WORLD_EVENT_SITE_COUNT or path != f'bg/bg990_{ident - 1393:02d}_c0_t00.dat':
+                raise ValueError('Invalid overworld battlefield file registration')
         elif directory == 500 and ident >= 50000:
             location, language = divmod(ident - 50000, len(MAP_NAME_LANGUAGES))
             if path != f'menu/mapname/{MAP_NAME_LANGUAGES[language]}/STRONGHOLD_{location:03d}.dat':
@@ -158,7 +164,15 @@ def reconcile(data, additions=(), sizes=None, removals=()):
         if found is None:
             if not sizes or item['path'] not in sizes:
                 raise ValueError('New art registration has no project file: ' + item['path'])
-            directory.entries.append(Entry(item['id'], item['path'], sizes[item['path']]))
+            name_hash = None
+            if directory.id == 100:
+                # The battlefield directory indexes paths with FNV-1.
+                name_hash = 2166136261
+                for char in item['path'].encode('ascii'):
+                    name_hash = ((name_hash * 16777619) & 0xffffffff) ^ char
+                if any(entry.name_hash == name_hash for entry in directory.entries):
+                    raise ValueError('The overworld battlefield path conflicts with another map name')
+            directory.entries.append(Entry(item['id'], item['path'], sizes[item['path']], name_hash))
             paths[item['path'].casefold()] = (directory.id, item['id'])
     available = {e.path for d in table.directories for e in d.entries}
     for path, size in (sizes or {}).items():
