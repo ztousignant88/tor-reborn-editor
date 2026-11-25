@@ -18,8 +18,14 @@ STEAM_HASH = 'da6504e9079ca6901569cb0fa4d0bc6eac72f6769996a8146e8be6581d9650dc'
 STOCK_CAPACITY, CAPACITY, PLAYERS = 30, 62, 12
 KEY = 'expandedBattleLimit'
 FIGHTS = ('finalShowdown', 'walkingDead')
-OPTIONS = (KEY, *FIGHTS)
+ONE_TIME_OPTIONS = {key: key + 'OneTime' for key in FIGHTS}
+OPTIONS = (KEY, *FIGHTS, *ONE_TIME_OPTIONS.values())
 BATTLE, SYSTEM, WORLD = 'battle/battle_data_release.dat', 'system/system_data.dat', 'worldmap/Worldmap.dat'
+EVENT_DATA = 'event/event_data.dat'
+FIRST_COMPLETION_FLAG = 3731
+COMPLETION_FLAGS = len(FIGHTS) + WORLD_EVENT_SITE_COUNT
+# The native global flag bit bank uses 512 bytes. Reserve the last bits, beyond the stock definitions.
+FIRST_COMPLETION_BIT = 4096 - COMPLETION_FLAGS
 TYNEMOUTH, PHORAMPA = 19, 37
 CHAPTERS = ('1', '2a', '2b', '3a', '3b', '3c', '4', 'ep', 'dlc')
 # Keep authored scene IDs stable when other encounters or story steps are added.
@@ -43,7 +49,12 @@ def recipes():
 
 
 def selected(value, custom=None):
-    return {key: recipes()[key] for key in FIGHTS if value.get(key)} | (custom or {})
+    active = {key: recipes()[key] for key in FIGHTS if value.get(key)}
+    for index, key in enumerate(FIGHTS):
+        if key in active and value.get(ONE_TIME_OPTIONS[key]):
+            active[key] = active[key] | {'completionFlag': FIRST_COMPLETION_FLAG + index,
+                                         'description': 'A battle that can be won once.'}
+    return active | (custom or {})
 
 
 def scene_id(fight, directory):
@@ -80,7 +91,8 @@ def owned_paths(value, custom=None):
     entries = registrations(value, custom)
     if not entries:
         return set()
-    return ({entry['path'] for entry in entries} | {BATTLE, SYSTEM, WORLD}
+    flags = {EVENT_DATA} if any('completionFlag' in fight for fight in selected(value, custom).values()) else set()
+    return ({entry['path'] for entry in entries} | {BATTLE, SYSTEM, WORLD} | flags
             | {f'event/chapter/chapter_{suffix}.dat' for suffix in CHAPTERS}
             | {f'localize/LocalizeText_{language}.dat' for language in MAP_NAME_LANGUAGES})
 
@@ -97,7 +109,7 @@ def validate_battle_limit(data, limit=CAPACITY):
 
 
 def preview_path(path):
-    return (path in (SYSTEM, WORLD, *ROSTERS) or path.startswith(('event/chapter/chapter_', 'event/scene/', 'menu/mapname/', 'bg/bg990_')))
+    return (path in (SYSTEM, WORLD, EVENT_DATA, *ROSTERS) or path.startswith(('event/chapter/chapter_', 'event/scene/', 'menu/mapname/', 'bg/bg990_')))
 
 
 def map_path(fight):
@@ -127,6 +139,21 @@ def archive(data):
 
 def replace(dat, pack, changes):
     return dat.rebuild(rebuild_pakd(pack, changes))
+
+
+def patch_completion_flags(data):
+    dat, pak = archive(data)
+    flags = Xlce(pak.entry(3))
+    if flags.row_size != 4 or flags.count != FIRST_COMPLETION_FLAG:
+        raise ValueError('One-time battles need the stock global flag table size.')
+    for index in range(flags.count):
+        definition = u32(flags.row(index), 0)
+        if (definition & 15) == 1 and ((definition >> 4) & 0xfff) >= FIRST_COMPLETION_BIT:
+            raise ValueError('The one-time battle flags overlap existing story flags.')
+    # Define each slot, including inactive ones, so toggling other encounters preserves the IDs.
+    definitions = {FIRST_COMPLETION_FLAG + i: struct.pack('<I', ((FIRST_COMPLETION_BIT + i) << 4) | 1)
+                   for i in range(COMPLETION_FLAGS)}
+    return replace(dat, pak, {3: extend_rows(flags, definitions)})
 
 
 def extend_rows(table, changes, empty=None):
@@ -250,7 +277,7 @@ def patch_system(data, fights):
             # The visible name is a 16-bit resource ID. Route and story travel
             # keep the distinct byte-sized overworld location index.
             node_changes[node] = struct.pack('<8H', fight['nameId'], node, source << 8, 0,
-                                             fight['mapNumber'], flag, 97, 0)
+                                             fight['mapNumber'], flag, fight.get('completionFlag', 97), 0)
             road_changes[road] = struct.pack('<4BH', road, source, node, 0, flag)
             nav.extend(bytes((node if d == 0 else 0, 0, 0, d, 0)) for d in range(4))
             connect_cursor(nav, source, node, direction)
@@ -261,7 +288,7 @@ def patch_system(data, fights):
         if roads.row(road) != bytes((road, 0, 0, 0, 0, 0)):
             raise ValueError(f"{fight['title']} needs unused world-map road {road}")
         node_changes[node] = struct.pack('<8H', node, node, TYNEMOUTH << 8, 0, fight.get('mapNumber', MAP),
-                                         flag, node + 50, 0)
+                                         flag, fight.get('completionFlag', node + 50), 0)
         road_changes[road] = struct.pack('<4BH', road, TYNEMOUTH, node, 0, flag)
         if node == 50:
             anchor = nav.index(bytes((TYNEMOUTH, PHORAMPA, PHORAMPA, 0, 0)))
@@ -511,7 +538,11 @@ def patch_chapter(data, directory, fights, scripted=()):
             rows.append(row)
             row = resume
         rows.append(row)
-        rule = struct.pack('<HHBHBBH', arrival, 0x60, 1, 0x32, 0, location, 0xffff)
+        completion = fight.get('completionFlag')
+        rule = struct.pack('<HHBHBB', arrival, 0x60, 2 if completion else 1, 0x32, 0, location)
+        if completion:
+            rule += struct.pack('<HHBB', 0x30, completion, 0, 0)  # Saved global flag == 0.
+        rule += b'\xff\xff'
         added[3].append(rule)
         if has_script:
             added[0].append(rule)
@@ -619,6 +650,8 @@ def build(read, value, editor, custom=None, limit=CAPACITY, assets=None, editor_
     result[BATTLE] = patch_battle(read(BATTLE), fights, counts)
     result[SYSTEM] = patch_system(read(SYSTEM), fights)
     result[WORLD] = patch_world(read(WORLD), fights)
+    if any('completionFlag' in fight for fight in fights):
+        result[EVENT_DATA] = patch_completion_flags(read(EVENT_DATA))
     for directory, suffix in enumerate(CHAPTERS, 901):
         path = f'event/chapter/chapter_{suffix}.dat'
         scripted = set()

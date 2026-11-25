@@ -37,6 +37,7 @@ export function installWorldMap(openers, refreshBattles) {
   const dialog = $('');
   const status = $('-status');
   const map = $('-plane');
+  const newOneTime = $('-new-one-time');
   let data, draft, picked, artReady, drag, placing = false, busy = false;
   let enableExpansion = false;
   let chapter = CHAPTERS[0].prefix;
@@ -367,10 +368,25 @@ export function installWorldMap(openers, refreshBattles) {
         renderListAndMap();
       };
       marker.append(markers);
+      const completion = document.createElement('label');
+      completion.className = 'world-map-toggle';
+      const oneTime = document.createElement('input');
+      oneTime.type = 'checkbox';
+      oneTime.checked = !!event.oneTime;
+      oneTime.disabled = !editable() || !data.oneTimeSupported;
+      oneTime.onchange = () => {
+        if (oneTime.checked) event.oneTime = true;
+        else delete event.oneTime;
+        renderListAndMap();
+      };
+      completion.append(oneTime, 'One-time battle');
+      completion.title = data.oneTimeSupported
+        ? 'A victory clears this battle and changes its map marker. The location and roads stay open.'
+        : 'One-time battles require Steam 1.0.8.0.';
       const hint = document.createElement('p');
       hint.className = 'hint';
       hint.textContent = 'Copies enemies from the selected battlefield. Win by defeating all enemies.';
-      box.append(label, deployment, marker, hint);
+      box.append(label, deployment, marker, completion, hint);
       const linked = document.createElement('div');
       linked.className = 'world-map-assets';
       const version = document.createElement('label');
@@ -441,6 +457,10 @@ export function installWorldMap(openers, refreshBattles) {
     const available = nextSlot();
     const offer = offerExpansion();
     $('-add').disabled = !editable() || !(available || offer);
+    newOneTime.disabled = $('-add').disabled || !data.oneTimeSupported;
+    newOneTime.title = data.oneTimeSupported
+      ? 'The next battle event can be won once per save.'
+      : 'One-time battles require Steam 1.0.8.0.';
     $('-add').title = available ? '' : offer ? 'Enable World Map Event Expansion to add another event.'
       : !expanded() && !data.eventExpansionSupported ? 'World Map Event Expansion requires Steam 1.0.8.0.'
         : 'All custom event slots are in use.';
@@ -483,7 +503,10 @@ export function installWorldMap(openers, refreshBattles) {
       if (!slot || !confirm(`Enable World Map Event Expansion to add this event? It raises the project limit to ${data.eventCapacity} custom events.`)) return;
       enableExpansion = true;
     }
-    draft.events[slot.key] = { title: 'New battle', position: slot.position, arena: data.arenas[0].id, players: 8 };
+    const event = { title: 'New battle', position: slot.position, arena: data.arenas[0].id, players: 8 };
+    if (data.oneTimeSupported && newOneTime.checked) event.oneTime = true;
+    draft.events[slot.key] = event;
+    newOneTime.checked = false;
     select(slot.key);
   };
   $('-close').onclick = () => {
@@ -522,6 +545,7 @@ export function installWorldMap(openers, refreshBattles) {
   };
   return async () => {
     dialog.showModal();
+    newOneTime.checked = false;
     $('-content').hidden = true;
     $('-save').disabled = true;
     status.textContent = 'Loading locations and roads…';

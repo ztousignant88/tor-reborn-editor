@@ -9,10 +9,13 @@ const startingCards=[
 const emptyCards=()=>[0,0,0,0];
 const battleLimitOption=['expandedBattleLimit','Expanded Battle Limit (62 units)','Raises the battle limit from 30 to 62 slots, including player deployment, allies and enemies. The Battles editor uses the larger limit. Battle Suspend is disabled in battles using the extra slots. Turning this off also turns off The Final Showdown and The Walking Dead.'];
 const overworldEncounterOptions=[
- ['finalShowdown','The Final Showdown','Adds a replayable fight east of Phorampa with 50 bosses and 12 deployment slots.'],
- ['walkingDead','The Walking Dead','Adds a replayable fight west of Phorampa. Human Nybeth leads 50 enemies, including the undead versions of Leonar, Gildas, Xaebos, Hektor, Cassandra and Moldova.'],
+ ['finalShowdown','The Final Showdown','Adds a fight east of Phorampa with 50 bosses and 12 deployment slots.'],
+ ['walkingDead','The Walking Dead','Adds a fight west of Phorampa. Human Nybeth leads 50 enemies, including the undead versions of Leonar, Gildas, Xaebos, Hektor, Cassandra and Moldova.'],
 ];
-const expandedBattleOptions=[battleLimitOption,...overworldEncounterOptions];
+const oneTimeBattleOptions=overworldEncounterOptions.map(([key,title])=>[
+ key+'OneTime',`${title} · One-time battle`,'A victory clears this encounter and changes its map marker. You can retry if you leave before winning.'
+]);
+const expandedBattleOptions=[battleLimitOption,...overworldEncounterOptions,...oneTimeBattleOptions];
 const battleOptionControl=([key,title,help],value,disabled)=>`<label class="menu-mod-option"><input type="checkbox" data-expanded-battle="${key}" ${value[key]?'checked':''} ${disabled?'disabled':''}><span><b>${title}</b><small>${help}</small></span></label>`;
 const options=[
  ['disableBuffCardSpawns','Disable battlefield card spawns','Stops recurring battlefield card spawns and cards from destroyed objects. Scripted cards and starting cards still apply. Restart and enter a fresh battle.'],
@@ -136,7 +139,7 @@ export class MenuMods{
  get overworldEncountersEnabled(){return overworldEncounterOptions.some(([key])=>this.value[key]);}
  get overworldEncountersChanged(){
   const saved=JSON.parse(this.original);
-  return overworldEncounterOptions.some(([key])=>this.value[key]!==saved[key]);
+  return [...overworldEncounterOptions,...oneTimeBattleOptions].some(([key])=>this.value[key]!==saved[key]);
  }
  syncBattleExpansion(enabled){
   const saved=JSON.parse(this.original);
@@ -174,6 +177,7 @@ export class MenuMods{
   if ((this.info.hardModeVersion??0)<7) delete settings.enemyForceCrestOfFire;
   if ((this.info.hardModeVersion??0)<8) delete settings.enemyEquipmentOverrides;
   if ((this.info.hardModeVersion??0)<9) delete settings.enemyAutoHeavenlyWeapons;
+  if ((this.info.hardModeVersion??0)<11) for (const [key] of oneTimeBattleOptions) delete settings[key];
   if ((this.info.hardModeVersion??0)<10) for (const [key] of expandedBattleOptions) delete settings[key];
   if (!this.info.versusModsVersion) delete settings.versusEnabled;
   const savedBattleLimit=JSON.parse(this.original).expandedBattleLimit;
@@ -292,7 +296,12 @@ export class MenuMods{
    ${this.info.hardModeVersion>=10?`<section><h2>Overworld encounters</h2>
     ${!this.info.expandedBattlesSupported?'<p class="hint">These options require Steam 1.0.8.0.</p>':''}
     <p class="hint">Both roads open with Tynemouth Hill. Enabling either fight also turns on Expanded Battle Limit in Menu controls.</p>
-    ${overworldEncounterOptions.map(option=>battleOptionControl(option,this.value,expandedDisabled)).join('')}
+    ${overworldEncounterOptions.map((option,index)=>{
+     const main=battleOptionControl(option,this.value,expandedDisabled);
+     if(this.info.hardModeVersion<11)return main;
+     const once=battleOptionControl(oneTimeBattleOptions[index],this.value,expandedDisabled||!this.value[option[0]]);
+     return main+once;
+    }).join('')}
    </section>`:''}
    <p class="hint">Save the project, then use Apply Project. The settings take effect the next time the game launches. Start a fresh battle to see new cards and loadouts.</p>`;
   detail.querySelector('[data-archer-range]').onchange=event=>{
@@ -301,8 +310,10 @@ export class MenuMods{
    onChange();
   };
   for(const control of detail.querySelectorAll('[data-expanded-battle]'))control.onchange=()=>{
-   this.value[control.dataset.expandedBattle]=control.checked;
+   const key=control.dataset.expandedBattle;
+   this.value[key]=control.checked;
    if(control.checked)this.value.expandedBattleLimit=true;
+   else if(overworldEncounterOptions.some(([fight])=>fight===key))this.value[key+'OneTime']=false;
    onChange();
   };
   const poolEditor=detail.querySelector('[data-equipment-pool]');
@@ -535,7 +546,7 @@ export class MenuMods{
   if(battleLimit)battleLimit.onchange=()=>{
    this.value.expandedBattleLimit=battleLimit.checked;
    if(!battleLimit.checked){
-    for(const [key] of overworldEncounterOptions)this.value[key]=false;
+    for(const [key] of [...overworldEncounterOptions,...oneTimeBattleOptions])this.value[key]=false;
    }
    onChange();
   };

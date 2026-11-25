@@ -1,4 +1,4 @@
-"""Editable overworld markers, road geometry and replayable battle events."""
+"""Editable overworld markers, road geometry and battle events."""
 
 import base64
 import binascii
@@ -147,13 +147,18 @@ def edits(value):
         if row:
             clean['locations'][key] = row
     for key, settings in events.items():
-        if not isinstance(settings, dict) or settings.keys() - {'position', 'title', 'art', 'arena', 'players', 'markerSource', 'unlock'}:
+        if not isinstance(settings, dict) or settings.keys() - {'position', 'title', 'art', 'arena', 'players', 'markerSource', 'unlock', 'oneTime'}:
             raise ValueError('Invalid world map battle.')
         arena, players = settings.get('arena'), settings.get('players')
         if type(arena) is not int or arena not in ARENAS or type(players) is not int or not 1 <= players <= 12:
             raise ValueError('Choose a battlefield and 1–12 deployment slots.')
         clean['events'][key] = dict(title=title(settings.get('title')), art=art(settings.get('art')),
                                     position=position(settings.get('position')), arena=arena, players=players)
+        one_time = settings.get('oneTime', False)
+        if type(one_time) is not bool:
+            raise ValueError('Choose whether the battle can be won once.')
+        if one_time:
+            clean['events'][key]['oneTime'] = True
         if 'unlock' in settings:
             clean['events'][key]['unlock'] = unlock_condition(settings['unlock'])
         if 'markerSource' in settings:
@@ -166,7 +171,8 @@ def edits(value):
 
 def revision(value, mod_settings):
     digest = {'map': value, 'slots': [k for k in encounters.FIGHTS if mod_settings.get(k)],
-              'expansion': bool(mod_settings.get(EXPANSION))}
+              'expansion': bool(mod_settings.get(EXPANSION)),
+              'oneTimeBuiltIns': [k for k in encounters.ONE_TIME_OPTIONS.values() if mod_settings.get(k)]}
     return sha256(json.dumps(digest, sort_keys=True).encode()).hexdigest()
 
 
@@ -204,6 +210,11 @@ def custom(value, editor):
             'players': item['players'], 'source': donor, 'art': item['art'],
             'markerSource': item.get('markerSource', recipe['markerSource']),
         }
+        if item.get('oneTime'):
+            result['world-' + slot].update(
+                completionFlag=encounters.FIRST_COMPLETION_FLAG + len(encounters.FIGHTS) + scene_slot,
+                description='A battle that can be won once.',
+            )
         if unlock := item.get('unlock'):
             if unlock['kind'] == 'location':
                 result['world-' + slot]['unlockSource'] = unlock['id']

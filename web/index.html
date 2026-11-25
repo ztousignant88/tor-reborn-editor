@@ -81,7 +81,13 @@
         <label for="world-map-search">Locations</label>
         <input id="world-map-search" type="search" placeholder="Find a location">
         <div id="world-map-locations" class="world-map-location-list"></div>
-        <button id="world-map-add" class="primary" type="button">Add battle event…</button>
+        <div class="world-map-create">
+          <label class="world-map-toggle">
+            <input id="world-map-new-one-time" type="checkbox" aria-label="One-time battle for new event" disabled>
+            One-time battle
+          </label>
+          <button id="world-map-add" class="primary" type="button">Add battle event…</button>
+        </div>
         <span id="world-map-event-count" class="muted"></span>
       </aside>
       <div class="world-map-view">

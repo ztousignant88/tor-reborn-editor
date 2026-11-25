@@ -57,6 +57,7 @@ LABELS['enemyArcherRange']='Enemy archers use downhill range'
 LABELS['disableBuffCardSpawns']='Disable battlefield card spawns'
 LABELS['battleLevelSync']='Disable battle level sync'
 LABELS.update(expandedBattleLimit='62-unit battle limit',finalShowdown='The Final Showdown',walkingDead='The Walking Dead')
+LABELS.update(finalShowdownOneTime='The Final Showdown (one time)',walkingDeadOneTime='The Walking Dead (one time)')
 LABELS[versus.MOD_KEY]='Versus Mode'
 LABELS['guestPlayerControl']='Player-controlled guests'
 LABELS[world_map.EXPANSION]='World Map Event Expansion'
@@ -90,6 +91,8 @@ def settings(value=None):
  if value['advancedBeastFamilies'] and not value['specialClassChange']:raise ValueError('Advanced beast families require Special Class Change')
  if value['genericSpecialRecruitment'] and not value['specialClassChange']:raise ValueError('Generic special recruitment requires Special Class Change')
  if any(value[k] for k in battle_encounters.FIGHTS):value[battle_encounters.KEY]=True
+ for fight, option in battle_encounters.ONE_TIME_OPTIONS.items():
+  if not value[fight]:value[option]=False
  return {'version':1,**{k:value[k]for k in FIELDS},**{k:list(value[k])for k in CARD_SETTINGS},'formationLimit':value['formationLimit'],'trapAiProfile':value['trapAiProfile'],'enemyLevelOffset':value['enemyLevelOffset'],'enemyEquipmentOverrides':equipment_overrides.settings(value['enemyEquipmentOverrides']),'enemyItemPool':value['enemyItemPool'],**statuses.settings(value)}
 
 def cards_active(value):
@@ -314,6 +317,8 @@ def prepare(config,value,project=None,class_payload=None,custom_icons=False,read
   if not exe.is_file():raise ValueError('The selected game folder is missing Tactics Ogre Reborn.exe')
   executable_hash=sha(exe.read_bytes())
   expanded_routes=any(fight['node']>=64 for fight in encounters.values())
+  if any('completionFlag' in fight for fight in encounters.values()) and executable_hash!=battle_encounters.STEAM_HASH:
+   raise ValueError('One-time world map battles require Steam 1.0.8.0.')
   if expanded_routes and executable_hash!=battle_encounters.STEAM_HASH:
    raise ValueError('The expanded world-map road network requires the supported Steam executable.')
   if encounters and executable_hash==battle_encounters.STEAM_HASH:
@@ -321,8 +326,10 @@ def prepare(config,value,project=None,class_payload=None,custom_icons=False,read
    sections+=b'\r\n[WorldMapBattles]\r\n'
    if expanded_routes:
     sections+=b'ExpandedRoutes=1\r\n'
-   sections+=''.join(
-       f"Stage{i}={fight['stage']}\r\n" for i,fight in enumerate(encounters.values(),1)).encode('ascii')
+   for i,fight in enumerate(encounters.values(),1):
+    sections+=f"Stage{i}={fight['stage']}\r\n".encode('ascii')
+    if 'completionFlag' in fight:
+     sections+=f"ClearFlag{i}={fight['completionFlag']}\r\n".encode('ascii')
   if pilot:
    sections+=versus.pilot_ini(meta,executable_hash==battle_encounters.STEAM_HASH,v[battle_encounters.KEY],queue_key)
  if active and not class_payload:

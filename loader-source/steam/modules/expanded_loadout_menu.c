@@ -103,6 +103,9 @@ static uint8_t loadout_picker_matches(uint8_t *dialog, uint32_t id) {
     typedef uint8_t (*Matches)(uint8_t *, uint32_t);
     const unsigned category = loadout_picker_category(dialog);
     if (category != 2 && category != 3) return ((Matches)(mm_base + 0x51be60))(dialog, id);
+    if (category == 2 && id && id <= UINT16_MAX) {
+        return loadout_skill_family_at(loadout_picker_unit(dialog), dialog[0x7c0]) == loadout_skill_family((uint16_t)id);
+    }
     return !id || loadout_picker_current(dialog) == id;
 }
 
@@ -120,8 +123,9 @@ static void loadout_picker_equip(uint8_t *dialog, uint16_t id) {
 
 static uint8_t loadout_unit_has_skill(const uint8_t *unit, uint16_t id) {
     if (!id) return 0;
+    const uint16_t family = loadout_skill_family(id);
     for (unsigned slot = 0; slot < LOADOUT_SLOTS; ++slot) {
-        if (loadout_skill_id_at(unit, slot) == id) return 1;
+        if (loadout_skill_family_at(unit, slot) == family) return 1;
     }
     return 0;
 }

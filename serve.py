@@ -326,7 +326,7 @@ class Handler(SimpleHTTPRequestHandler):
                     "integratedContentVersion": 1,
                     "integratedContentError": preview[2] if preview else None,
                     "integratedContentPending": bool(project) and preview is None,
-                    "hardModeVersion": 10,
+                    "hardModeVersion": 11,
                     "expandedBattlesSupported": menu_runtime.battle_capacity_supported(self.config),
                     "expandedLoadout": bool(project and menu_options[loadout_controls.KEY]),
                     "versusModsVersion": 1,
@@ -515,6 +515,9 @@ class Handler(SimpleHTTPRequestHandler):
                 if body.get("revision") != revision:
                     raise ValueError("This project's world map changed. Reopen it before saving.")
                 updated = world_map.edits(body.get("changes"))
+                if (any(row.get("oneTime") for row in updated["events"].values())
+                        and not menu_runtime.battle_capacity_supported(config)):
+                    raise ValueError("One-time world map battles require Steam 1.0.8.0.")
                 for section in ("locations", "events"):
                     for ident, row in updated[section].items():
                         if "art" in row and row["art"] != saved[section].get(ident, {}).get("art"):
@@ -574,8 +577,9 @@ class Handler(SimpleHTTPRequestHandler):
                     edited_routes = integrated_content.replay(battle_encounters.SYSTEM, raw, generated,
                                                               {"2": location_edits})
             view = world_map.view(read, value, editor, edited_routes)
+        supported = menu_runtime.battle_capacity_supported(config)
         return self._json(view | {"project": name, "revision": revision, "readOnly": config.read_only,
-                                  "eventExpansionSupported": menu_runtime.battle_capacity_supported(config)})
+                                  "eventExpansionSupported": supported, "oneTimeSupported": supported})
 
     def _map_backdrops(self, save=False):
         config = self.config

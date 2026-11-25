@@ -84,6 +84,10 @@ body.read-only .ro-badge { display: inline; }
 .world-map-details h3 { margin: 0 0 4px; font-size: 16px; }
 .world-map-details label { display: grid; gap: 4px; color: var(--muted); }
 .world-map-details input, .world-map-details select, .world-map-locations input { width: 100%; min-width: 0; }
+.world-map-create { display: grid; gap: 8px; }
+.world-map-create .world-map-toggle, .world-map-details .world-map-toggle {
+  display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 8px;
+}
 .world-map-location-list { display: grid; gap: 3px; max-height: min(45vh, 355px); overflow-y: auto; }
 .world-map-location-list button { text-align: left; padding: 5px 8px; }
 .world-map-location-list button[aria-pressed="true"] { border-color: #f7ce86; color: #f7ce86; }

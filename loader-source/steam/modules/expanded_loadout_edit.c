@@ -70,6 +70,24 @@ static uint16_t loadout_skill_id_at(const uint8_t *unit, unsigned slot) {
     return get(copy, slot - LOADOUT_STOCK);
 }
 
+/* The picker can offer a higher rank than the ID stored in a slot.
+ * The native learned-skill builder also maps both IDs to the same family. */
+static uint16_t loadout_skill_family(uint16_t skill) {
+    if (!skill) return 0;
+    const uint8_t *table;
+    memcpy(&table, mm_base + 0xd682f8, sizeof(table));
+    if (!table) return skill;
+    uint32_t count;
+    memcpy(&count, table + 4, sizeof(count));
+    typedef uint16_t (*SkillFamily)(uint16_t);
+    return skill < count ? ((SkillFamily)(mm_base + 0x448430))(skill) : skill;
+}
+
+static uint16_t loadout_skill_family_at(const uint8_t *unit, unsigned slot) {
+    const uint8_t *record = unit ? loadout_skill_at(unit, slot) : NULL;
+    return record ? loadout_skill_family(loadout_word(record)) : 0;
+}
+
 static void loadout_skill_rank_mask(const uint8_t *unit, uint8_t mask[3]) {
     typedef uint8_t *(*RankMask)(const uint16_t *, uint8_t *);
     const RankMask scan = (RankMask)(mm_base + 0x448320);
@@ -90,20 +108,28 @@ static void loadout_equip_skill(uint8_t *unit, unsigned slot, uint16_t skill) {
     typedef void (*UpdateFinishers)(uint8_t *, const uint8_t *, const uint8_t *);
 
     const uint8_t *selected = loadout_skill_at(unit, slot);
-    if (selected && loadout_word(selected) == skill) return;
-    uint8_t before[3], after[3], old[LOADOUT_SKILL_SIZE] = {0}, replacement[LOADOUT_SKILL_SIZE] = {0};
-    if (selected) memcpy(old, selected, sizeof(old));
-    loadout_skill_rank_mask(unit, before);
-
+    if (!skill && (!selected || !loadout_word(selected))) return;
+    const uint16_t family = loadout_skill_family(skill);
     uint16_t raw[LOADOUT_SLOTS] = {0};
+    uint8_t same_family[LOADOUT_SLOTS] = {0};
+    unsigned source = LOADOUT_SLOTS, matches = 0;
     for (unsigned index = 0; index < LOADOUT_SLOTS; ++index) {
         const uint8_t *record = loadout_skill_at(unit, index);
         if (record) raw[index] = loadout_word(record);
+        if (family && raw[index] && loadout_skill_family(raw[index]) == family) {
+            same_family[index] = 1;
+            ++matches;
+            if (index == slot || source == LOADOUT_SLOTS) source = index;
+        }
     }
-    unsigned other = 0;
-    while (other < LOADOUT_SLOTS && (other == slot || raw[other] != skill)) ++other;
-    if (skill && other < LOADOUT_SLOTS) memcpy(replacement, loadout_skill_at(unit, other), sizeof(replacement));
-    if (skill && other == LOADOUT_SLOTS) {
+    if (source == slot && matches == 1) return;
+
+    uint8_t before[3], after[3], old[LOADOUT_SKILL_SIZE] = {0}, replacement[LOADOUT_SKILL_SIZE] = {0};
+    if (selected) memcpy(old, selected, sizeof(old));
+    loadout_skill_rank_mask(unit, before);
+    if (source < LOADOUT_SLOTS) {
+        memcpy(replacement, loadout_skill_at(unit, source), sizeof(replacement));
+    } else if (skill) {
         const uint8_t *party = ((PartyUnit)(mm_base + 0x31ecc0))(mm_base + 0xed3960, unit);
         const uint16_t single[LOADOUT_STOCK] = {skill};
         uint8_t state[40], copy[LOADOUT_CORE_PREFIX];
@@ -121,12 +147,12 @@ static void loadout_equip_skill(uint8_t *unit, unsigned slot, uint16_t skill) {
         filter(filtered, skill);
         filter(filtered + LOADOUT_STOCK, skill);
         for (unsigned index = 0; index < LOADOUT_SLOTS; ++index) {
-            if (index != slot && index != other && raw[index] && !filtered[index]) {
+            if (index != slot && index != source && raw[index] && (same_family[index] || !filtered[index])) {
                 const uint8_t empty[LOADOUT_SKILL_SIZE] = {0};
                 loadout_set_skill(unit, index, empty);
             }
         }
-        if (other < LOADOUT_SLOTS) loadout_set_skill(unit, other, old);
+        if (source < LOADOUT_SLOTS && source != slot) loadout_set_skill(unit, source, old);
     }
     loadout_set_skill(unit, slot, replacement);
     loadout_skill_rank_mask(unit, after);
