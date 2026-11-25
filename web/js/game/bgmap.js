@@ -14,14 +14,15 @@ import { source } from './source.js';
 
 
 /** Read just enough of a map file to cover `uncompressedBytes` of its pack. */
-async function readPackPrefix(path, uncompressedBytes, firstRead = 256 * 1024) {
+async function readPackPrefix(path, uncompressedBytes, firstRead = 256 * 1024, prefetched) {
   let readBytes = firstRead;
   for (;;) {
-    const { bytes, size } = await source.read(path, readBytes);
+    const { bytes, size } = prefetched ?? await source.read(path, readBytes);
     // A truncated read decrypts one byte short: each byte needs its successor.
     const plain = bytes.length < size ? decryptPrefix(bytes, bytes.length - 1) : decryptPrefix(bytes, size);
     const pack = await unzipPrefix(plain, uncompressedBytes);
     if (pack.length >= uncompressedBytes || bytes.length >= size) return pack;
+    prefetched = null;
     readBytes *= 4;
   }
 }
@@ -45,8 +46,8 @@ function sceneHeader(pack) {
 }
 
 /** Header only: name and dimensions (cheap: reads a few KB of the file). */
-export async function readMapInfo(path) {
-  const pack = await readPackPrefix(path, 0x200, 8 * 1024);
+export async function readMapInfo(path, prefetched) {
+  const pack = await readPackPrefix(path, 0x200, 8 * 1024, prefetched);
   const h = sceneHeader(pack);
   return { path, name: h.name, width: h.width, depth: h.depth, maxHeight: h.maxHeight };
 }

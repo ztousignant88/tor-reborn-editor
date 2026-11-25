@@ -21,7 +21,7 @@ const SHEET_W = 512, SHEET_H = 384, ROW_H = 128;
 let actorNamesPromise = null;
 
 export function actorNames() {
-  actorNamesPromise ??= source.read('FileTable.bin').then(({bytes})=>{
+  actorNamesPromise ??= source.read('FileTable.bin', undefined, false, {mapBanners:false}).then(({bytes})=>{
     const actors=readFileRegistry(bytes).filter(e=>e.directory===20),names=Array(Math.max(0,...actors.map(e=>e.id))).fill('');
     for(const actor of actors)names[actor.id-1]=actor.path.split('/').pop().replace(/\.dat$/i,'');
     return names;

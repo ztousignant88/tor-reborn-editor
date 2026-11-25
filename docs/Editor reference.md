@@ -643,8 +643,8 @@ generated mod content (class names in all eight languages, AI data...) before it
 the text files and FileTable. That used to happen inside `/api/info`, the editor's first
 request, so the page sat on "Connecting to the editor server" for about 45 s.
 
-- `/api/info` no longer waits: it says `integratedContentPending` and the build runs in the
-  background. The server also starts the build as soon as it starts.
+- `/api/info` returns the project details while the build runs in the background. The status popup
+  shows when the editor is waiting for the project data.
 - The text parser (`tools/menu_mods/compiler/class_text.py`) parses each table once, reads all
   its strings in one pass and reuses parsed tables: the same build takes about half the time,
   with byte-identical results (checked on all 21 generated files and every text table).
@@ -653,9 +653,10 @@ request, so the page sat on "Connecting to the editor server" for about 45 s.
   Python code are unchanged; anything else rebuilds it. A read-only editor never writes it.
   Deleting the folder is always safe.
 
-Measured on "Art - Independent Werewolf": first start with no saved copy about 30 s of build
-behind the popup; later starts about 11 s to a ready editor (reading 538 battles and indexing
-394 maps), build 0.8 s.
+- The editor reads battle rosters and map headers in batches. The browser still checks each
+  roster and keeps its file revision for conflict checks when saving.
+- Custom world-map title banners are encoded when a project is applied or a caller requests
+  the native banner files. The editor uses the project's original artwork for its preview.
 
 ## Saving and safety
 
@@ -1170,18 +1171,33 @@ scrollable list. Native evidence: RVAs 4448F0, 445140, 445B30, 69AC58.
 
 ### Others → Shop hiring
 
-This category documents the native ten-choice shop roster and links its shared
-character templates to Characters. The executable's array at CADAB0 contains
-class IDs 1–5 twice, for male and female hiring. Generator 3F6820 iterates ten
-slots, chooses templates 159–162 / 163–166, and starts recruits at level 1. The
-hiring flow uses a fixed 2,000 Goth price. Custom roster, races, price, starting
-level and shop-only overrides need a runtime mod; more choices also need UI
-count/buffer changes. Battle recruitment flags and story joins are separate.
+Open a project and choose **Game default**, **Fixed roster**, or **Random pool**.
+Fixed roster edits the ten slots shown in Hire. Random pool draws ten entries
+from its own list of eligible choices. Each mode saves its own list.
 
-Ordinary template edits are global. These eight sheets are used by 2,558 stock
-battle-unit presets. Shop hiring shows live usage counts from loaded units and
-opens the existing Characters editor, rather than presenting them as shop-only
-settings. Opening the category or a sheet does not modify data.
+Each choice accepts a class and either a single character sheet or a four-sheet
+group. The game selects one sheet at random from a group. Sheets supply race
+and character data. The shop creates recruits at level 1 for 2,000 Goth.
+Choose a form under **Special characters** in the **Character or pool** picker
+to use its battle record's sheet, class, name ID and clan. The game resolves
+that name in its current language. For a regular offer using a single sheet,
+open **Name and clan** to give it a custom identity. Both kinds of identity are
+used in the Hire preview and carried into the army when purchased.
+
+In **Random pool**, use **Pool contents** to include custom choices, large
+monsters, or both. **Add pool choice** adds a class and sheet combination to the
+custom list, which supports up to 64 choices. Large monsters adds all 17 normally
+recruitable large classes. The pool needs at least ten eligible choices, and each
+entry can be drawn once per lineup. Choose **After each battle** or **When
+reopening Hire** under **Reroll lineup** to refresh the draw. With both off,
+the game draws a lineup when Hire is initialized and keeps it for that session.
+
+Save the project, apply it, and restart the game. Battle recruitment and story
+joins use separate rules.
+
+The stock shared templates (#159–166) link to Characters. Editing one of these
+sheets changes it for every use, including the 2,558 stock battle-unit presets
+that reference them.
 
 Others → Equipment permissions edits the 64 shared class equipment permission groups. Choose a class, then toggle weapon/armor types or individual named items. Fusils (guns) can be enabled for Warrior here. Shared classes are listed; other group bits and unnamed entries are preserved. This is distinct from equipment-set bonuses and weapon proficiency skills.
 

@@ -1,9 +1,9 @@
 // Battle documents (one per entry_unit file), undo history and saving.
 
-import { encodeDat, loadDat } from '../game/datfile.js';
+import { decodeDat, encodeDat, loadDat } from '../game/datfile.js';
 import { saveDataFiles } from './savefiles.js';
 import { buildEntryPack, isEmptySlot, parseEntryPack, readField, FIELD, UNIT_ROW_SIZE } from '../game/entryunit.js';
-import { source, mapLimit } from '../game/source.js';
+import { source, loadStartupFiles } from '../game/source.js';
 import { syncCopies } from '../game/unitcopies.js';
 import { parsePakd } from '../lib/pakd.js';
 
@@ -47,9 +47,7 @@ export class BattleDoc {
   isFieldChanged(slot, fd) {
     const unit = this.units[slot];
     if (!unit.orig) return false; // new units carry a "new" badge instead
-    const width = fd.kind === 'u16' ? 2 : 1;
-    for (let i = 0; i < width; i++) if (unit.row[fd.offset + i] !== unit.orig.row[fd.offset + i]) return true;
-    return false;
+    return readField(unit.row, fd) !== readField(unit.orig.row, fd);
   }
 
   isSpriteChanged(slot) {
@@ -78,9 +76,10 @@ export class BattleDoc {
 export async function loadAllBattles(onProgress) {
   const files = (await source.list(ENTRY_DIR)).filter((f) => /\.dat$/i.test(f.name));
   let done = 0;
-  const docs = await mapLimit(files, 12, async (f) => {
+  const docs = await loadStartupFiles(ENTRY_DIR, files, async (f, loaded) => {
     try {
-      return new BattleDoc(await loadDat(`${ENTRY_DIR}/${f.name}`), f.name);
+      const path = `${ENTRY_DIR}/${f.name}`;
+      return new BattleDoc(loaded ? await decodeDat(path, loaded) : await loadDat(path), f.name);
     } catch (err) {
       console.warn(`skipping ${f.name}:`, err);
       return null;

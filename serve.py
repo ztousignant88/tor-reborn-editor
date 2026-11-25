@@ -23,6 +23,7 @@ from apply_progress import ApplyProgress
 import project_merge
 import ai_validation
 import ai_choices_data
+from tools.menu_mods.compiler import loadout_controls
 import class_change
 import dorgalua_xl
 import integrated_content
@@ -327,6 +328,7 @@ class Handler(SimpleHTTPRequestHandler):
                     "integratedContentPending": bool(project) and preview is None,
                     "hardModeVersion": 10,
                     "expandedBattlesSupported": menu_runtime.battle_capacity_supported(self.config),
+                    "expandedLoadout": bool(project and menu_options[loadout_controls.KEY]),
                     "versusModsVersion": 1,
                     "versusEnabled": bool(project and menu_options[versus.MOD_KEY]),
                     "expandedBattleUnitLimit": battle_encounters.CAPACITY,
@@ -364,6 +366,8 @@ class Handler(SimpleHTTPRequestHandler):
                 return self._list()
             if route == "/api/file":
                 return self._read_file()
+            if route == "/api/file-batch":
+                return self._read_file_batch()
             if route == "/api/maps":
                 return self._maps_list()
             if route == "/api/map":
@@ -511,6 +515,10 @@ class Handler(SimpleHTTPRequestHandler):
                 if body.get("revision") != revision:
                     raise ValueError("This project's world map changed. Reopen it before saving.")
                 updated = world_map.edits(body.get("changes"))
+                for section in ("locations", "events"):
+                    for ident, row in updated[section].items():
+                        if "art" in row and row["art"] != saved[section].get(ident, {}).get("art"):
+                            world_map.banner_image(row["art"])
                 editor = meta.setdefault("editor", {})
                 rosters = editor.get(battle_encounters.ROSTER_EDITS, {})
                 old_fights = world_map.custom(value, editor)
@@ -720,10 +728,14 @@ class Handler(SimpleHTTPRequestHandler):
         tracked = self.headers.get("X-TOR-Track-File") == "1"
         if tracked or rel == TABLE_NAME or integrated_content.preview_path(rel):
             with self.config.write_lock:
-                content, _, _ = self._integrated_view() if rel == TABLE_NAME or integrated_content.preview_path(rel) else ({}, {}, None)
+                content, _, read = self._integrated_view() if rel == TABLE_NAME or integrated_content.preview_path(rel) else ({}, {}, None)
                 if rel == TABLE_NAME:
+                    if q.get("mapBanners") != "0":
+                        content = content | self._map_banner_files(read)
                     whole = self.config.virtual_table(content)
                 else:
+                    if rel.startswith("menu/mapname/"):
+                        content = content | self._map_banner_files(read, rel)
                     whole = content.get(rel)
                     if whole is not None:
                         revision = _sha1(whole)
@@ -757,6 +769,73 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_header("X-TOR-File-Revision", token)
         self.end_headers()
         self.wfile.write(data)
+
+    def _map_banner_files(self, read, only=None):
+        name = self.config.open_project()
+        if not name or read is None:
+            return {}
+        meta = self.config.project(name)
+        return world_map.banner_files(read, menu_runtime.project_settings(meta), meta.get("editor", {}), only)
+
+    def _read_file_batch(self):
+        """Read startup rosters or map headers against one consistent project view."""
+        query = self._query()
+        directory = query.get("dir")
+        names = json.loads(query.get("names", "[]"))
+        if (directory not in ("battle/entry", "bg") or not isinstance(names, list)
+                or not 1 <= len(names) <= 96 or any(
+                    not isinstance(name, str) or not re.fullmatch(r"[\w.-]{1,116}\.dat", name, re.IGNORECASE)
+                    for name in names)):
+            return self._error(HTTPStatus.BAD_REQUEST, "Invalid startup file batch")
+        tracked = directory == "battle/entry"
+        limit = 128 * 1024 if tracked else 8 * 1024  # unusual rosters fall back to a full single-file read
+        rows, chunks = [], []
+        with self.config.write_lock:
+            config = self.config
+            name = config.open_project()
+            state = config.state()
+            applied = state.get("applied") or {}
+            scope = self._file_scope(name) if tracked else None
+            content, _, _ = self._integrated_view()
+            options = menu_runtime.settings((state.get("menuRuntime") or {}).get("settings")) if tracked else None
+            for filename in names:
+                rel = f"{directory}/{filename}"
+                try:
+                    path = config.resolve(rel)
+                    if config.rel(path) != rel:
+                        continue
+                    whole = content.get(rel) if integrated_content.preview_path(rel) else None
+                    if whole is None:
+                        visible = config.project_path(path, name, applied) if name else path
+                        if visible is None:
+                            continue
+                        with visible.open("rb") as stream:
+                            size = os.fstat(stream.fileno()).st_size
+                            if tracked and size > limit:
+                                continue
+                            data = stream.read(limit)
+                        if len(data) != min(size, limit):
+                            continue
+                    else:
+                        size = len(whole)
+                        if tracked and size > limit:
+                            continue
+                        data = whole[:limit]
+                except OSError:
+                    continue  # the ordinary read reports the individual failure
+                row = {"name": filename, "size": size, "length": len(data)}
+                if tracked:
+                    row.update(scope=scope, revision=self._file_revision(rel, data, content, options),
+                               view=_sha1(whole) if whole is not None else None)
+                rows.append(row)
+                chunks.append(data)
+        manifest = json.dumps(rows).encode("utf-8")
+        body = b"".join((len(manifest).to_bytes(4, "little"), manifest, *chunks))
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "application/octet-stream")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def _write_file(self):
         rel = self._query().get("path", "")
@@ -795,10 +874,11 @@ class Handler(SimpleHTTPRequestHandler):
     def _file_scope(self, name):
         return _sha1(json.dumps([str(self.config.data_root), name]).encode())
 
-    def _file_revision(self, rel, data, content):
+    def _file_revision(self, rel, data, content, options=None):
         if rel not in content:
             return "raw:" + _sha1(data)
-        options = menu_runtime.selected(self.config)
+        if options is None:
+            options = menu_runtime.selected(self.config)
         generation = json.dumps({key: options[key] for key in integrated_content.SETTINGS}, sort_keys=True).encode()
         return _sha1(generation) + ":" + _sha1(data)
 
@@ -831,7 +911,11 @@ class Handler(SimpleHTTPRequestHandler):
             raise ValueError("Invalid file save preview.")
         with self.config.write_lock:
             name = self.config.open_project()
-            content, _, _ = self._integrated_view()
+            content, _, read = self._integrated_view()
+            for file in files:
+                rel = self.config.rel(self.config.resolve(file["path"]))
+                if rel.startswith("menu/mapname/"):
+                    content = content | self._map_banner_files(read, rel)
             table = bytearray(self.config.virtual_table(content))
             conflicts = []
             for file in files:
@@ -854,6 +938,8 @@ class Handler(SimpleHTTPRequestHandler):
         if rel == TABLE_NAME:
             raise ValueError("Save tracked game files individually to update FileTable.bin.")
         content, defaults, read = self._integrated_view() if integrated_content.preview_path(rel) else ({}, {}, None)
+        if rel.startswith("menu/mapname/") and self._map_banner_files(read, rel):
+            raise ValueError('This archive is generated from the project’s world map or encounter settings.')
         current = content[rel] if rel in content else self.config.read_editable(path)
         revision = self._file_revision(rel, current, content)
         expected = self.headers.get("X-TOR-File-Revision", "")
@@ -1189,11 +1275,12 @@ class Handler(SimpleHTTPRequestHandler):
         former_sets = set(applied.get("spellSetFiles", [])) | set(applied.get("permissionSetFiles", []))
         former_cap = set(applied.get("levelCapFiles", []))
         former_xl = set(applied.get("dorgaluaXLFiles", []))
+        former_loadout = set(applied.get("expandedLoadoutFiles", []))
         former_encounters = set(applied.get('encounterFiles', []))
         if value[battle_encounters.KEY] and menu_runtime.battle_pilot_applied(self.config, applied):
             former_encounters.update(applied.get('files', {}))
         former = (set(applied.get("classChangeFiles", [])) | former_weapons | former_sets | former_cap
-                  | former_xl | set(applied.get("aiChoiceFiles", [])) | former_encounters)
+                  | former_xl | former_loadout | set(applied.get("aiChoiceFiles", [])) | former_encounters)
         removed = set(applied.get("files", {})) - set(files) if editor_view or revert_others else set()
         def read(rel):
             game = self.config.resolve(rel)
@@ -1239,6 +1326,9 @@ class Handler(SimpleHTTPRequestHandler):
         runtime_payload = None
         def effective(rel):
             return generated[rel] if rel in generated else read(rel)
+
+        if value[loadout_controls.KEY] and not editor_view:
+            generated.update(loadout_controls.project(effective))
 
         if value["rougesReborn"] and value["trapAiProfile"]:
             _, pack = weapon_mods.unpack(effective(class_change.BATTLE))
@@ -1397,7 +1487,11 @@ class Handler(SimpleHTTPRequestHandler):
                                           icon_import.catalog(meta.get('editor', {}).get('customIcons')))
                 package.writestr("dinput8.dll", menu_runtime.select_loader(value, executable_hash,
                                                                          bool(sets or permissions)))
-                package.writestr("menu-mods.ini", menu_runtime.ini(value)+b"\r\n"+section+modprep_sets.ini(sets,value["equipmentSetFreeSkills"])+modprep_equipperms.ini(permissions)+menu_runtime.custom_icon_ini(custom_action_icons))
+                def exported(rel):
+                    return files[rel] if rel in files else read(rel)
+                hiring = menu_runtime.shop_hiring_config(meta, value, exported)
+                loadout_ini = loadout_controls.ini(exported) if value[loadout_controls.KEY] else b""
+                package.writestr("menu-mods.ini", menu_runtime.ini(value)+b"\r\n"+section+modprep_sets.ini(sets,value["equipmentSetFreeSkills"])+modprep_equipperms.ini(permissions)+menu_runtime.custom_icon_ini(custom_action_icons)+hiring+loadout_ini)
                 package.writestr("class-change-export.json", json.dumps({
                     "version": 1, "project": name, "settings": value,
                     "executableSHA256": executable_hash,
@@ -1453,9 +1547,10 @@ class Handler(SimpleHTTPRequestHandler):
             ai_restore = set(others) & set(before.get("aiChoiceFiles", []))
             xl_restore = set(others) & set(before.get("dorgaluaXLFiles", []))
             encounter_restore = set(others) & set(before.get('encounterFiles', []))
+            loadout_restore = set(others) & set(before.get("expandedLoadoutFiles", []))
             if value[battle_encounters.KEY] and menu_runtime.battle_pilot_applied(self.config, before):
                 encounter_restore.update(others)
-            forced_restore = class_restore | weapon_restore | spell_restore | cap_restore | ai_restore | xl_restore | encounter_restore
+            forced_restore = class_restore | weapon_restore | spell_restore | cap_restore | ai_restore | xl_restore | encounter_restore | loadout_restore
             if before.get("classChangeFiles") and not value["specialClassChange"]:
                 class_change.assert_can_remove()
             weapon_mods.assert_can_remove((state.get("menuRuntime") or {}).get("settings", {}), value)
@@ -1478,9 +1573,10 @@ class Handler(SimpleHTTPRequestHandler):
             if not body.get("revertOthers"):
                 custom_action_icons |= any(row['bank'] != 'itemicon' and icon_import.archive_path(row['bank']) in others
                                            for row in icon_import.catalog(before.get('customIcons')))
-            runtime = menu_runtime.prepare(self.config, value, name, class_payload, custom_action_icons, read=read)
+            runtime = menu_runtime.prepare(self.config, value, name, class_payload, custom_action_icons,
+                                           read=lambda rel: generated[rel] if rel in generated else read(rel))
             if body.get("dryRun"):
-                return {"files": plan, "changed": changed, "others": others, "classRestore": sorted(class_restore), "weaponRestore": sorted(weapon_restore), "spellRestore": sorted(spell_restore), "levelCapRestore": sorted(cap_restore), "aiChoiceRestore": sorted(ai_restore), "dorgaluaXLRestore": sorted(xl_restore), "encounterRestore": sorted(encounter_restore), "appliedBefore": before.get("name"), "runtime": runtime["public"]}
+                return {"files": plan, "changed": changed, "others": others, "classRestore": sorted(class_restore), "weaponRestore": sorted(weapon_restore), "spellRestore": sorted(spell_restore), "levelCapRestore": sorted(cap_restore), "aiChoiceRestore": sorted(ai_restore), "dorgaluaXLRestore": sorted(xl_restore), "encounterRestore": sorted(encounter_restore), "expandedLoadoutRestore": sorted(loadout_restore), "appliedBefore": before.get("name"), "runtime": runtime["public"]}
             progress(74, "Checking files to write and restore")
             if not body.get("revertOthers") and "battle/battle_data_release.dat" in files and any(
                 entry["path"].startswith("object/") and entry["path"] not in files
@@ -1572,6 +1668,8 @@ class Handler(SimpleHTTPRequestHandler):
                     next_state["applied"]["permissionSetFiles"] = sorted(set_files)
                 if ai_files:
                     next_state["applied"]["aiChoiceFiles"] = sorted(ai_files)
+                if value[loadout_controls.KEY]:
+                    next_state["applied"]["expandedLoadoutFiles"] = list(loadout_controls.PATHS)
                 encounter_paths = world_map.owned_paths(value, meta.get('editor', {}))
                 if map_backdrops.ARCHIVE in generated:
                     encounter_paths.add(map_backdrops.ARCHIVE)

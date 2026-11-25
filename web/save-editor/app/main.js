@@ -22,6 +22,7 @@ useInstalledGameData();
 const state = {
   tables: null, armsType: [], saves: [], profile: null, gameRunning: false,
   writing: false, writeError: '',
+  expandedLoadout: false,
   name: null, sha: null, original: null, data: null, slot: 0, dirty: false,
   syncStock: true, invFilter: '', invOwnedOnly: true, tab: 'units',
   relics: new Set(), relicBonus: 0, // relic equipment ids; bonus for a brand-new relic copy
@@ -698,6 +699,7 @@ async function boot() {
   try {
     status('Reading game names…');
     const info = await source.info();
+    state.expandedLoadout = !!info.expandedLoadout;
     const texts = await loadTexts('en-us');
     state.tables = await GameTables.load(texts, info);
     state.relics = await loadRelicIds();
@@ -912,8 +914,12 @@ function equipmentCard(u) {
       '★ snapshot weapons and ◆ relics exist once each.'));
 }
 
+function loadoutSlots(unit) {
+  return state.expandedLoadout && unit.canExpandLoadout ? UNIT.expandedSlotCount : UNIT.skillCount;
+}
+
 function carriedCard(u) {
-  const spells = u.spells, items = u.items;
+  const spells = u.equippedSpells(loadoutSlots(u)), items = u.items;
   return h('div', { class: 'card' }, h('h3', {}, 'Items and spells'),
     h('div', { class: 'grid2' },
       ...items.flatMap((id, k) => [h('label', {}, `Item ${k + 1}`), iconSelect(state.lists.items, id, (v) => { u.setItem(k, v); markDirty(); renderUnit(); }, itemIconFor, 'item')]),
@@ -931,7 +937,7 @@ function skillsCard(u) {
     ...state.lists.skills.filter((o) => o.id && !current.has(o.id) && unlocked.has(o.id)).map((o) => ({ ...o, group: 'Unlocked by level (other classes)' })),
     ...state.lists.skills.filter((o) => o.id && !current.has(o.id) && !unlocked.has(o.id)).map((o) => ({ ...o, group: 'Other skills' }))];
   const rows = [];
-  for (let k = 0; k < UNIT.skillCount; k++) {
+  for (let k = 0; k < loadoutSlots(u); k++) {
     const sk = u.skill(k);
     rows.push(h('tr', {},
       h('td', {}, iconSelect(options, sk.id, (v) => { u.setSkill(k, { id: v }); markDirty(); renderUnit(); }, skillIconFor, 'skill')),
@@ -941,6 +947,8 @@ function skillsCard(u) {
   const finRows = fin.map((id, k) => h('tr', {},
     h('td', { colSpan: 2 }, iconSelect(state.lists.finishers, id, (v) => { u.setFinisher(k, v); markDirty(); renderUnit(); }, effectIconFor, 'effect'))));
   return h('div', { class: 'card' }, h('h3', {}, 'Skills'),
+    state.expandedLoadout && !u.canExpandLoadout
+      ? h('p', { class: 'note' }, 'Existing data in this unit’s reserved loadout fields prevents editing slots 5–8.') : null,
     h('table', {}, h('thead', {}, h('tr', {}, h('th', {}, 'Equipped skill'), h('th', { class: 'num' }, 'Rank'))), h('tbody', {}, rows)),
     h('h3', { style: 'margin-top:14px' }, 'Finishing moves'),
     h('table', {}, h('tbody', {}, finRows)));

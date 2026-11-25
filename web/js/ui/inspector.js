@@ -1,6 +1,6 @@
 // Unit editor panel: every field of the selected unit record, grouped.
 
-import { FIELD, UNKNOWN_BYTES, readField } from '../game/entryunit.js';
+import { FIELD, UNKNOWN_BYTES, readField, canExpandLoadout, initializeBattleLoadout, STOCK_LOADOUT_SLOTS, EXPANDED_LOADOUT_SLOTS } from '../game/entryunit.js';
 import { displayHeight } from '../game/bgmap.js';
 import { createPicker } from './picker.js';
 import { abilityArt, itemOptionArt } from './iconart.js';
@@ -40,6 +40,8 @@ export class Inspector {
     this.doc = doc;
     this.slot = slot;
     const row = doc.row(slot);
+    const wantsExpandedLoadout = this.ctx.expandedLoadout?.();
+    const loadoutSlots = wantsExpandedLoadout && canExpandLoadout(row) ? EXPANDED_LOADOUT_SLOTS : STOCK_LOADOUT_SLOTS;
     const t = this.ctx.tables;
     const val = (key) => readField(row, FIELD[key]);
     const tpl = t.template(val('template'));
@@ -84,9 +86,17 @@ export class Inspector {
       group('items', 'Items & drops',
         h('div', { class: 'sub' }, 'Carried items'), this.slots('item', 4, ['id', 'drop']),
         h('div', { class: 'sub' }, 'Drops on defeat'), this.slots('drop', 4, ['id', 'qty', 'chance'])),
-      group('skills', 'Skills', this.slots('skill', 10, ['id', 'rank'])),
+      group('skills', 'Skills', this.slots('skill', loadoutSlots, ['id', 'rank']),
+        wantsExpandedLoadout && loadoutSlots === STOCK_LOADOUT_SLOTS
+          ? h('div', {},
+            h('p', { class: 'hint warn' }, 'This unit has existing data in fields the battle loader skips. Initialize those fields to edit slots 5–8.'),
+            h('button', { type: 'button', onclick: () => {
+              if (confirm('Replace this unit’s reserved values with empty slots 5–8? You can undo this change before saving.')) {
+                this.ctx.applyBlock(initializeBattleLoadout(), 'Initialize skill and spell slots 5–8');
+              }
+            } }, 'Initialize slots 5–8')) : null),
       group('magic', 'Spells & finishers',
-        h('div', { class: 'sub' }, 'Spells'), this.field('autoSpellProfile'), this.slots('spell', 4, ['id']),
+        h('div', { class: 'sub' }, 'Spells'), this.field('autoSpellProfile'), this.slots('spell', loadoutSlots, ['id']),
         h('div', { class: 'sub' }, 'Finishers'), this.field('autoFinishers'), this.slots('finisher', 8, ['id'])),
       group('combat', 'Element & behaviour',
         h('div', { class: 'pair' }, this.field('element'), this.field('ai')),

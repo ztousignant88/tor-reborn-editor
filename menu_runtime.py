@@ -11,8 +11,10 @@ import modprep_spellsets
 import modprep_equipperms
 import enemy_equipment_overrides as equipment_overrides
 import battle_encounters
+import shop_hiring
 import versus
 import world_map
+from tools.menu_mods.compiler import loadout_controls
 
 BUG_FIX_SECTIONS={'offhandDamageFix': 'OffhandDamageFix', 'armorResistanceFix': 'ArmorResistanceFix',
                   'dorgaluaXLFix': 'DorgaluaXLFix'}
@@ -20,8 +22,9 @@ BUG_FIX_SECTIONS={'offhandDamageFix': 'OffhandDamageFix', 'armorResistanceFix': 
 FIELDS=('fastForward','chariot','autoBattle','unionLevel','skipChapterVideos','aiStatus','aiStatusAll','aiChoices','aiEnemyMpRecovery','aiDefaultBuffWeight','aiDefaultHealingWeights',*BUG_FIX_SECTIONS,'modPreparation','equipmentSetBonuses','equipmentSetFreeSkills','specialClassChange','advancedBeastFamilies','genericSpecialRecruitment',*weapon_mods.KEYS,'enemyArcherRange','battleLevelSync','disableBuffCardSpawns','enemyLevelScaling','levelCap99','pspSpellRuntime','enemyFinishers','enemyProficiency40','enemyProficiencyLevel','enemyRandomSkills','enemyRandomSpells','enemyRandomEquipment','enemyAutoGear','enemyAutoRareGear','enemyAutoAccessories','enemyAutoMovement','enemyForceCrestOfFire','enemyAutoHeavenlyWeapons')
 # switches added after settings were first saved: missing ones read as off
 LATER_FIELDS=('aiStatus','aiStatusAll','aiChoices','aiEnemyMpRecovery','aiDefaultBuffWeight','aiDefaultHealingWeights',*BUG_FIX_SECTIONS,'modPreparation','equipmentSetBonuses','equipmentSetFreeSkills','specialClassChange','advancedBeastFamilies','genericSpecialRecruitment',*weapon_mods.KEYS,'enemyArcherRange','battleLevelSync','disableBuffCardSpawns','enemyLevelScaling','levelCap99','pspSpellRuntime','enemyFinishers','enemyProficiency40','enemyProficiencyLevel','enemyRandomSkills','enemyRandomSpells','enemyRandomEquipment','enemyAutoGear','enemyAutoRareGear','enemyAutoAccessories','enemyAutoMovement','enemyForceCrestOfFire','enemyAutoHeavenlyWeapons')
-FIELDS+=(*battle_encounters.OPTIONS,versus.MOD_KEY,'guestPlayerControl',world_map.EXPANSION)
-LATER_FIELDS+=(*battle_encounters.OPTIONS,versus.MOD_KEY,'guestPlayerControl',world_map.EXPANSION)
+FIELDS+=(*battle_encounters.OPTIONS,versus.MOD_KEY,'guestPlayerControl',world_map.EXPANSION,shop_hiring.KEY,shop_hiring.MONSTERS)
+LATER_FIELDS+=(*battle_encounters.OPTIONS,versus.MOD_KEY,'guestPlayerControl',world_map.EXPANSION,shop_hiring.KEY,shop_hiring.MONSTERS,loadout_controls.KEY)
+FIELDS+=(loadout_controls.KEY,)
 PILOT_MARKER='battle-capacity-pilot.ini'
 FILES=('dinput8.dll','menu-mods.ini',*class_change.SIDECARS,*weapon_mods.ROGUE_FILES,modprep_sets.FILE,modprep_equipperms.FILE,dorgalua_xl.SIDECAR,PILOT_MARKER)
 CARD_SETTINGS={'enemyStartingCards':'EnemyStartingCards','playerStartingCards':'PlayerStartingCards'}
@@ -57,6 +60,9 @@ LABELS.update(expandedBattleLimit='62-unit battle limit',finalShowdown='The Fina
 LABELS[versus.MOD_KEY]='Versus Mode'
 LABELS['guestPlayerControl']='Player-controlled guests'
 LABELS[world_map.EXPANSION]='World Map Event Expansion'
+LABELS[shop_hiring.KEY]='Custom shop hiring'
+LABELS[shop_hiring.MONSTERS]='Large monster hiring'
+LABELS[loadout_controls.KEY]='Expand Skill & Spell Slots'
 def settings(value=None):
  if isinstance(value,dict) and value.get('equipmentSetFreeSkills') is True and 'equipmentSetBonuses' not in value:
   value={**value,'equipmentSetBonuses':True}
@@ -108,6 +114,8 @@ def project_settings(meta):
   value={**value,'equipmentSetBonuses':True}
  if value is not None and not isinstance(value,dict):return settings(value)
  result={**(settings() if value is None else value),versus.MOD_KEY:versus.enabled_in(meta)}
+ if shop_hiring.PLAN in editor:
+  result.update(shop_hiring.flags(shop_hiring.plan(editor[shop_hiring.PLAN])))
  if (value is None or world_map.EXPANSION not in value) and world_map.requires_expansion(editor):
   result[world_map.EXPANSION]=True
  return settings(result)
@@ -219,6 +227,23 @@ def validate_world_event_expansion(config,project,value):
   if not project:raise ValueError('Open a project to use World Map Event Expansion')
   if not battle_capacity_supported(config):raise ValueError('World Map Event Expansion requires Steam 1.0.8.0')
 
+def shop_hiring_config(meta,value,read=None):
+ editor=meta.get('editor',{})
+ hiring=shop_hiring.configuration(editor,value)
+ if hiring['mode']=='stock':return b''
+ if hiring['mode']=='fixed':
+  roster=shop_hiring.settings(editor.get(shop_hiring.ROSTER))[:shop_hiring.SLOTS]
+ else:
+  roster=list(hiring['pool']) if hiring['includeCustom'] else []
+  if hiring['includeMonsters']:
+   roster+=shop_hiring.large_monsters()
+  if len(roster)<shop_hiring.SLOTS:
+   raise ValueError('Shop hiring needs at least ten eligible choices in Random pool. Add more or include large monsters.')
+ if read is not None:
+  shop_hiring.validate(read(shop_hiring.BATTLE),roster)
+ random=hiring['mode']=='random'
+ return shop_hiring.ini(roster,random and hiring['afterBattle'],random and hiring['onOpen'],random)
+
 def battle_pilot_applied(config,applied):
  # The two local prototypes predate runtime receipts. Match the exact DLL,
  # marker and applied project before allowing an integrated Apply to replace it.
@@ -232,9 +257,16 @@ def battle_pilot_applied(config,applied):
  return (marker.is_file() and marker.read_bytes()==b'[FinalShowdown]\r\nStage=176\r\nCapacity=62\r\n'
          and dll.is_file() and sha(dll.read_bytes())==expected)
 
+def validate_expanded_loadout(config,project,value):
+ if value[loadout_controls.KEY]:
+  if not project:raise ValueError('Open a project to use expanded spell and skill slots')
+  if not battle_capacity_supported(config):raise ValueError('Expanded spell and skill slots require Steam 1.0.8.0')
+  if value['proficiencyII']:raise ValueError('Disable Proficiency II to use Expand Skill & Spell Slots. The two mods share equipment hooks.')
+
 def prepare(config,value,project=None,class_payload=None,custom_icons=False,read=None):
  v=settings(value)
  validate_world_event_expansion(config,project,v)
+ validate_expanded_loadout(config,project,v)
  if v[battle_encounters.KEY] and not project:raise ValueError('Open a project to use the expanded battle limit')
  if v['dorgaluaXLFix'] and not project:raise ValueError('Open a project to use the XL Dorgalua fix')
  if v['pspSpellRuntime'] and not project:raise ValueError('Open a project to use the PSP spell status fixes')
@@ -243,6 +275,7 @@ def prepare(config,value,project=None,class_payload=None,custom_icons=False,read
  if v['aiChoices'] and not(v['aiStatus']or v['aiStatusAll']):raise ValueError('Enable AI status scoring with the Buff / Debuff buttons')
  if v['equipmentSetBonuses'] and not project:raise ValueError('Open a project to use Equipment Set Bonuses')
  if v['modPreparation'] and not project:raise ValueError('Open a project to use Mod Preparation')
+ if (v[shop_hiring.KEY] or v[shop_hiring.MONSTERS]) and not project:raise ValueError('Open a project to customize shop hiring')
  if weapon_mods.active(v) and not project:raise ValueError('Open a project to use Proficiency II, Throw Reborn or Rouges Reborn')
  if v['enemyArcherRange'] and not project:raise ValueError('Open a project to use Hard Mode')
  if v['levelCap99'] and not project:raise ValueError('Open a project to raise the player level cap')
@@ -262,6 +295,8 @@ def prepare(config,value,project=None,class_payload=None,custom_icons=False,read
  if pilot and v['formationLimit'] not in (0,1):raise ValueError('Versus needs one spectator slot. Set Formation Limit to one or disable it.')
  sections=modprep_sets.ini(sets,v['equipmentSetFreeSkills'])+modprep_equipperms.ini(permissions)
  sections+=custom_icon_ini(custom_icons)
+ sections+=shop_hiring_config(meta,v,read)
+ if v[loadout_controls.KEY] and read is not None:sections+=loadout_controls.ini(read)
  encounters=battle_encounters.selected(v,world_map.custom(v,meta.get('editor',{}))) if project else {}
  active=pilot or custom_icons or advanced or any(v[k]for k in FIELDS if k not in ('modPreparation','equipmentSetBonuses','advancedBeastFamilies',world_map.EXPANSION)) or cards_active(v) or statuses.active(v) or v['formationLimit']>0 or bool(v['enemyItemPool'] or v['enemyEquipmentOverrides']);recorded=owned.get('files',{})
  if not isinstance(recorded,dict)or any(k not in FILES for k in recorded):raise ValueError('Invalid installed menu runtime receipt')
@@ -360,6 +395,12 @@ def info(config):
  class_ids=[int(klass) for klass in icons if int(klass)>=80]
  return {'version':1,'project':name,'settings':value,'installed':bool(owned),'installedSettings':settings(owned.get('settings')),'available':available,'error':error,'plan':public,
          'worldEventExpansionRequired':world_map.requires_expansion(editor),
+         'shopHiringRoster':shop_hiring.settings(editor.get(shop_hiring.ROSTER))[:shop_hiring.SLOTS],
+         shop_hiring.PLAN:shop_hiring.configuration(editor,value),
+         'shopHiringMonsterChoices':len(shop_hiring.large_monsters()),
+         'stockShopHiringRoster':shop_hiring.stock(),
+         shop_hiring.ROTATE:editor.get(shop_hiring.ROTATE) is True,
+         shop_hiring.REOPEN:editor.get(shop_hiring.REOPEN) is True,
          'versusLegacy':bool((pilot:=editor.get(versus.PILOT_KEY)) and not pilot.get('queueOnly')),
          'capacityPlan':modprep_groups.PLAN,'itemPool':class_change.item_pool(class_change.recipe()),
          'communityClassGroups':groups,'additionalClassChoices':class_ids,'communityEquipmentSets':sets,
@@ -387,10 +428,14 @@ def save(config,body,atomic):
  if name and versus.MOD_KEY not in body['settings']:value[versus.MOD_KEY]=versus.enabled_in(meta)
  if name and world_map.EXPANSION not in body['settings']:
   value[world_map.EXPANSION]=project_settings(meta)[world_map.EXPANSION]
+ for key in (shop_hiring.KEY,shop_hiring.MONSTERS):
+  if name and key not in body['settings']:
+   value[key]=project_settings(meta)[key]
  if name and body.get('keepSavedExpandedBattleLimit') is True:
   value[battle_encounters.KEY]=project_settings(meta)[battle_encounters.KEY] or any(value[k] for k in battle_encounters.FIGHTS)
  validate_versus(config,name,value,meta)
  validate_world_event_expansion(config,name,value)
+ validate_expanded_loadout(config,name,value)
  if value[battle_encounters.KEY]:
   if not name:raise ValueError('Open a project to use the expanded battle limit')
   if not battle_capacity_supported(config):raise ValueError('The expanded battle limit and its encounters require Steam 1.0.8.0')
@@ -403,6 +448,8 @@ def save(config,body,atomic):
  if value['enemyLevelScaling']and not name:raise ValueError('Open a project to scale enemy levels')
  if value['equipmentSetBonuses']and not name:raise ValueError('Open a project to use Equipment Set Bonuses')
  if value['modPreparation']and not name:raise ValueError('Open a project to use Mod Preparation')
+ if not name and (value[shop_hiring.KEY] or value[shop_hiring.MONSTERS] or any(key in body for key in (shop_hiring.ROSTER,shop_hiring.PLAN,shop_hiring.ROTATE,shop_hiring.REOPEN))):
+  raise ValueError('Open a project to customize shop hiring')
  if name:
   editor=meta.setdefault('editor',{})
   if editor.get(world_map.KEY):
@@ -414,11 +461,21 @@ def save(config,body,atomic):
   if 'communitySpellSets' in body:editor['communitySpellSets']=modprep_spellsets.settings(body['communitySpellSets'])
   if 'communitySkillSets' in body:editor['communitySkillSets']=modprep_spellsets.settings(body['communitySkillSets'],'skill')
   if 'communityEquipmentPermissions' in body:editor['communityEquipmentPermissions']=modprep_equipperms.settings(body['communityEquipmentPermissions'])
+  if shop_hiring.ROSTER in body:
+   editor[shop_hiring.ROSTER]=shop_hiring.settings(body[shop_hiring.ROSTER])
+  if shop_hiring.PLAN in body:
+   editor[shop_hiring.PLAN]=shop_hiring.plan(body[shop_hiring.PLAN])
+  if shop_hiring.PLAN in editor:
+   value.update(shop_hiring.flags(shop_hiring.plan(editor[shop_hiring.PLAN])))
+  for key in (shop_hiring.ROTATE,shop_hiring.REOPEN):
+   if key in body:
+    if type(body[key]) is not bool:raise ValueError('Invalid shop hiring rotation setting')
+    editor[key]=body[key]
   config.save_project(name,meta);return {'saved':True,'project':name,'gameChanged':False,'expandedBattleLimit':value[battle_encounters.KEY]}
  if any(k in body for k in (modprep_groups.OVERRIDES,'communityClassGroups','communityEquipmentSets','communitySpellSets','communitySkillSets','communityEquipmentPermissions')):raise ValueError('Open a project to save class groups and sets')
  installed=settings((config.state().get('menuRuntime')or{}).get('settings'))
  runtime_files=(config.state().get('menuRuntime')or{}).get('files',{})
- if (config.state().get('menuRuntime') or {}).get('versusQueue') or any(installed[k] for k in ENEMY_LOADOUT_FIELDS) or installed[battle_encounters.KEY] or installed[world_map.EXPANSION] or installed['pspSpellRuntime'] or installed['specialClassChange'] or installed['dorgaluaXLFix'] or weapon_mods.active(installed) or installed['enemyArcherRange'] or installed['enemyLevelScaling'] or installed['levelCap99'] or cards_active(installed) or statuses.active(installed) or any(name in runtime_files for name in (modprep_sets.FILE,modprep_equipperms.FILE)):
+ if (config.state().get('menuRuntime') or {}).get('versusQueue') or any(installed[k] for k in ENEMY_LOADOUT_FIELDS) or installed[battle_encounters.KEY] or installed[world_map.EXPANSION] or installed[shop_hiring.KEY] or installed[shop_hiring.MONSTERS] or installed['pspSpellRuntime'] or installed['specialClassChange'] or installed['dorgaluaXLFix'] or weapon_mods.active(installed) or installed['enemyArcherRange'] or installed['enemyLevelScaling'] or installed['levelCap99'] or cards_active(installed) or statuses.active(installed) or any(name in runtime_files for name in (modprep_sets.FILE,modprep_equipperms.FILE)):
   raise ValueError('Open the applied project to change its runtime options')
  plan=prepare(config,value);state=config.state();receipt,changed=deploy(config,plan,atomic)
  try:

@@ -1,5 +1,12 @@
 /* Fill vacant equipped skill records from the game's learnable-skill scan. */
-enum { ES_NATIVE_SKILL_COUNT = 800, ES_BITMAP_CAPACITY = 1024, ES_SLOT_COUNT = 4 };
+#include "expanded_loadout_storage.h"
+
+enum { ES_NATIVE_SKILL_COUNT = 800, ES_BITMAP_CAPACITY = 1024 };
+static int enemy_loadouts_expanded;
+
+static unsigned es_slot_limit(const uint8_t *character) {
+    return enemy_loadouts_expanded && loadout_can_extend(character) ? LOADOUT_SLOTS : LOADOUT_STOCK;
+}
 
 typedef struct {
     const uint8_t *rows;
@@ -59,12 +66,16 @@ static unsigned es_choose(uint32_t *seed, unsigned count) {
 
 static unsigned es_fill_skills(uint8_t *unit) {
     uint8_t *character = unit + 0x138;
-    uint8_t *equipped = character + 0xc0;
-    unsigned vacancies[ES_SLOT_COUNT], blocked[ES_SLOT_COUNT];
+    const unsigned slot_limit = es_slot_limit(character);
+    uint16_t slots[LOADOUT_SLOTS] = {0};
+    unsigned vacancies[LOADOUT_SLOTS], blocked[LOADOUT_SLOTS];
     unsigned vacancy_count = 0, blocked_count = 0;
-    for (unsigned slot = 0; slot < ES_SLOT_COUNT; ++slot)
-        if (!es_word(equipped + slot * 6))
+    for (unsigned slot = 0; slot < slot_limit; ++slot) {
+        const uint8_t *record = loadout_skill_at(character, slot);
+        slots[slot] = record ? es_word(record) : 0;
+        if (!slots[slot])
             vacancies[vacancy_count++] = slot;
+    }
     if (!vacancy_count || !character[0x4a])
         return 0;
 
@@ -89,10 +100,9 @@ static unsigned es_fill_skills(uint8_t *unit) {
     typedef unsigned (*LearnableSkills)(uint8_t *, const uint16_t *, uint32_t *);
     ((LearnableSkills)(mm_base + 0x43f2e0))(learned, info, ranked);
 
-    for (unsigned slot = 0; slot < ES_SLOT_COUNT; ++slot) {
-        unsigned id = es_word(equipped + slot * 6);
-        if (id)
-            blocked[blocked_count++] = es_family(&skills, id);
+    for (unsigned slot = 0; slot < slot_limit; ++slot) {
+        if (slots[slot])
+            blocked[blocked_count++] = es_family(&skills, slots[slot]);
     }
 
     const unsigned limit = skills.count < ES_BITMAP_CAPACITY ? skills.count : ES_BITMAP_CAPACITY;
@@ -133,18 +143,19 @@ static unsigned es_fill_skills(uint8_t *unit) {
         unsigned pick = es_choose(&seed, candidate_count);
         uint16_t id = candidates[pick];
         candidates[pick] = candidates[--candidate_count];
-        uint8_t *record = equipped + 6 * vacancies[added];
-        memset(record, 0, 6);
+        uint8_t record[LOADOUT_SKILL_SIZE] = {0, 0, 1};
         memcpy(record, &id, sizeof id);
-        record[2] = 1;
+        if (!loadout_set_skill(character, vacancies[added], record))
+            break;
+        slots[vacancies[added]] = id;
     }
     static volatile LONG logged;
     if (added && InterlockedIncrement(&logged) <= 120) {
-        char line[180];
+        char line[220];
         snprintf(line, sizeof line,
-            "Enemy skills: unit %u class %u level %u, added %u, slots [%u,%u,%u,%u].\r\n",
-            unit[0x2fc], info[0], info[1], added, es_word(equipped), es_word(equipped + 6),
-            es_word(equipped + 12), es_word(equipped + 18));
+            "Enemy skills: unit %u class %u level %u, added %u, limit %u, slots [%u,%u,%u,%u,%u,%u,%u,%u].\r\n",
+            unit[0x2fc], info[0], info[1], added, slot_limit,
+            slots[0], slots[1], slots[2], slots[3], slots[4], slots[5], slots[6], slots[7]);
         mm_log(line);
     }
     return added;

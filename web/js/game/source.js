@@ -37,13 +37,28 @@ export const source = {
     return (await (await check(await fetch(`${readApi}/list?${q({ dir })}`, { headers: HEADERS }))).json()).files;
   },
   /** Read a file relative to Data/. With `max`, only the first bytes are sent. */
-  async read(path, max, track = false) {
+  async read(path, max, track = false, { mapBanners = true } = {}) {
     const params = max ? { path, max } : { path };
+    if (!mapBanners) params.mapBanners = 0;
     const headers = track ? {...HEADERS, 'X-TOR-Track-File': '1'} : HEADERS;
     const res = await check(await fetchRetry(`${readApi}/file?${q(params)}`, { headers }));
     return { bytes: new Uint8Array(await res.arrayBuffer()), size: Number(res.headers.get('X-File-Size')),
       scope: res.headers.get('X-TOR-File-Scope'), revision: res.headers.get('X-TOR-File-Revision'),
       view: res.headers.get('X-TOR-Content-View') };
+  },
+  async readBatch(dir, names) {
+    const res = await check(await fetchRetry(`${readApi}/file-batch?${q({ dir, names: JSON.stringify(names) })}`, { headers: HEADERS }));
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    const end = 4 + new DataView(bytes.buffer).getUint32(0, true);
+    const rows = JSON.parse(new TextDecoder().decode(bytes.subarray(4, end)));
+    let offset = end;
+    const files = new Map(rows.map(row => {
+      const start = offset;
+      offset += row.length;
+      return [row.name, { ...row, bytes: bytes.subarray(start, offset) }];
+    }));
+    if (offset !== bytes.length) throw new Error('Incomplete startup file batch');
+    return files;
   },
   async write(path, bytes, options) {
     const headers = {...HEADERS};
@@ -128,6 +143,17 @@ export const source = {
     return (await check(res)).json();
   },
 };
+
+/** Batch the small startup reads. Fall back per file if a batch or individual entry is unavailable. */
+export async function loadStartupFiles(dir, files, load) {
+  const batches = [];
+  for (let start = 0; start < files.length; start += 96) batches.push(files.slice(start, start + 96));
+  const results = await mapLimit(batches, 2, async batch => {
+    const loaded = await source.readBatch(dir, batch.map(f => f.name)).catch(() => new Map());
+    return mapLimit(batch, 6, f => load(f, loaded.get(f.name)));
+  });
+  return results.flat();
+}
 
 /** Run `fn` over `items` with at most `limit` in flight. */
 export async function mapLimit(items, limit, fn) {

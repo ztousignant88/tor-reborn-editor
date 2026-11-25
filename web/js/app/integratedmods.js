@@ -9,6 +9,10 @@ export class IntegratedMods {
   constructor(ed) {
     this.ed = ed; // DataEditor (dat, original, races, ctx)
     this.mods = [{key:"menu-controls",title:"Menu controls",applied:()=>!!ed.menuMods?.enabledIn('menu'),changed:()=>!!ed.menuMods?.dirtyIn('menu'),render:(detail,onChange)=>ed.menuMods.render(detail,onChange,ed)},this.statusBehaviours()];
+    this.mods.push({key:'expanded-loadout',title:'Expand Skill & Spell Slots',
+      applied:()=>!!ed.menuMods?.value.expandedLoadout,
+      changed:()=>!!ed.menuMods?.dirtyIn('expanded-loadout'),
+      render:(detail,onChange)=>ed.menuMods.renderExpandedLoadout(detail,onChange,ed)});
     this.mods.push({key:'bug-fixes',title:'Bug Fixes',
       applied:()=>!!ed.menuMods?.enabledIn('bug-fixes'),
       changed:()=>!!ed.menuMods?.dirtyIn('bug-fixes'),

@@ -19,6 +19,7 @@ const options=[
  ['fastForward','Five-speed fast-forward','Uses the existing speed button: Normal → Fast → Fast+ → Faster → Turbo. Press F3 to return to Normal. Press F4 to toggle 5× timing throughout the game, including the title screen and menus. The extra timing steps are 2×, 3× and 5× on top of native Fast.'],
  ['autoBattle','Auto Battle from the start','Makes the native AI control menu available early. It does not change AI profiles or automatically enable AI.'],
  ['guestPlayerControl','Player-controlled guests','Allied guests start battles under your control and keep their guest status for story events. Takes effect when units enter battle. Versus teams still use their assigned AI.'],
+ ['expandedLoadout','Enable eight skill and spell slots','Adds slots 5–8 to Skills and Spells in the battle roster. In game, units can equip and use up to eight of each.'],
  ['unionLevel','Remove the story level cap','Uses the native overall maximum, normally level 50, and hides the world-map Union Level badge. Battle level sync is separate.'],
  ['battleLevelSync','Disable battle level sync','Keeps unit levels and equipment stats at their normal values and hides the Level Sync control on the formation screen. Start the battle fresh after changing this option.'],
  ['skipChapterVideos','Skip chapter videos','Automatically skips chapter transition movies. Prologue, title movies and gallery replays remain. This option still needs an in-game chapter transition check.'],
@@ -33,7 +34,7 @@ const options=[
 ];
 const aiKeys=new Set(['aiStatus','aiStatusAll','aiChoices','aiEnemyMpRecovery','aiDefaultBuffWeight','aiDefaultHealingWeights']);
 const bugFixKeys=new Set(['offhandDamageFix','armorResistanceFix','dorgaluaXLFix']);
-const scopedOptions=scope=>options.filter(([key])=>(aiKeys.has(key)?'ai':bugFixKeys.has(key)?'bug-fixes':'menu')===scope);
+const scopedOptions=scope=>options.filter(([key])=>(key==='expandedLoadout'?'expanded-loadout':aiKeys.has(key)?'ai':bugFixKeys.has(key)?'bug-fixes':'menu')===scope);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const enemyEquipmentOptions=[
  ['enemyRandomEquipment', 'Randomize enemy auto equipment', 'Rolls among eligible pieces at the highest available tier for each empty auto-equipment slot. Set matching minimum levels under Auto Loadouts → Equipment pool to give enemies more choices.', 5],
@@ -53,9 +54,9 @@ const enemyLoadoutOptions=[
  [
   "enemyRandomSkills",
   "Fill empty enemy skill slots",
-  "Fills vacant slots with random skills the enemy can learn, excluding weapon proficiencies, recruitment skills and duplicate skill families. With Enemy Levels enabled, picks use the scaled level when combat starts."
+  "Fills vacant slots with random skills the enemy can learn, excluding weapon proficiencies, recruitment skills and duplicate skill families. With Expand Skill & Spell Slots enabled, this also fills slots 5–8. With Enemy Levels enabled, picks use the scaled level when combat starts."
  ],
- ["enemyRandomSpells", "Fill empty enemy spell slots", "Fills vacant slots with random scroll-backed spells from the enemy’s class spell set. A spell becomes eligible at the level listed for its spell-set group. Existing spells stay in place. With Enemy Levels enabled, picks use the scaled level when combat starts."]
+ ["enemyRandomSpells", "Fill empty enemy spell slots", "Fills vacant slots with random scroll-backed spells from the enemy’s class spell set, including slots 5–8 when Expand Skill & Spell Slots is enabled. A spell becomes eligible at the level listed for its spell-set group. Existing spells stay in place. With Enemy Levels enabled, picks use the scaled level when combat starts."]
 ];
 const proficiencyModes=[
  ['', 'Game default'],
@@ -74,7 +75,7 @@ const enemyItemCategories = [
 const empty=()=>({version:1,disableBuffCardSpawns:false,fastForward:false,chariot:false,autoBattle:false,unionLevel:false,battleLevelSync:false,formationLimit:0,trapAiProfile:0,skipChapterVideos:false,aiStatus:false,aiStatusAll:false,aiChoices:false,aiEnemyMpRecovery:false,aiDefaultBuffWeight:false,aiDefaultHealingWeights:false,offhandDamageFix:false,armorResistanceFix:false,dorgaluaXLFix:false,modPreparation:false,equipmentSetBonuses:false,equipmentSetFreeSkills:false,specialClassChange:false,advancedBeastFamilies:false,genericSpecialRecruitment:false,proficiencyII:false,throwReborn:false,rougesReborn:false,pspSpellRuntime:false,enemyArcherRange:false,enemyLevelScaling:false,enemyFinishers:false,enemyProficiency40:false,enemyProficiencyLevel:false,enemyRandomSkills:false,enemyRandomSpells:false,enemyRandomEquipment:false,enemyAutoGear:false,enemyAutoRareGear:false,enemyAutoHeavenlyWeapons:false,enemyAutoAccessories:false,enemyAutoMovement:false,enemyForceCrestOfFire:false,enemyEquipmentOverrides:{},enemyItemPool:0,enemyLevelOffset:1,levelCap99:false});
 export class MenuMods{
  constructor(info,saved){
-  this.info=info;this.saved=saved;this.value={...empty(),versusEnabled:false,guestPlayerControl:false,...Object.fromEntries(expandedBattleOptions.map(([key])=>[key,false])),...startingStatusDefaults(),...saved?.settings};this.original=JSON.stringify(this.value);
+  this.info=info;this.saved=saved;this.value={...empty(),versusEnabled:false,guestPlayerControl:false,expandedLoadout:false,...Object.fromEntries(expandedBattleOptions.map(([key])=>[key,false])),...startingStatusDefaults(),...saved?.settings};this.original=JSON.stringify(this.value);
   this.communityGroups=structuredClone(saved?.communityClassGroups??[]);
   this.originalGroups=JSON.stringify(this.communityGroups);
   this.builtinClassGroupOverrides=structuredClone(saved?.builtinClassGroupOverrides??{});
@@ -87,6 +88,11 @@ export class MenuMods{
   this.skillSets=structuredClone(this.savedSkillSets);
   this.savedEquipmentPermissions=saved?.communityEquipmentPermissions??[];
   this.equipmentPermissions=structuredClone(this.savedEquipmentPermissions);
+  this.stockShopHiringRoster=structuredClone(saved?.stockShopHiringRoster??[]);
+  this.savedShopHiringRoster=saved?.shopHiringRoster??[];
+  this.shopHiringRoster=structuredClone(this.savedShopHiringRoster);
+  this.savedShopHiringPlan=saved?.shopHiringPlan??null;
+  this.shopHiringPlan=structuredClone(this.savedShopHiringPlan);
  }
  static async load(info){try{return new MenuMods(info,info.menuModsVersion?await source.menuMods():null);}catch(e){return new MenuMods(info,{error:e.message});}}
  setScope(info){this.info=info;}
@@ -98,7 +104,8 @@ export class MenuMods{
  get spellSetsDirty(){return JSON.stringify(this.spellSets)!==JSON.stringify(this.savedSpellSets);}
  get skillSetsDirty(){return JSON.stringify(this.skillSets)!==JSON.stringify(this.savedSkillSets);}
  get equipmentPermissionsDirty(){return JSON.stringify(this.equipmentPermissions)!==JSON.stringify(this.savedEquipmentPermissions);}
- get dirty(){return JSON.stringify(this.value)!==this.original||this.groupsDirty||this.builtinGroupsDirty||this.setsDirty||this.spellSetsDirty||this.skillSetsDirty||this.equipmentPermissionsDirty;}
+ get shopHiringDirty(){return JSON.stringify(this.shopHiringPlan)!==JSON.stringify(this.savedShopHiringPlan)||JSON.stringify(this.shopHiringRoster)!==JSON.stringify(this.savedShopHiringRoster);}
+ get dirty(){return JSON.stringify(this.value)!==this.original||this.groupsDirty||this.builtinGroupsDirty||this.setsDirty||this.spellSetsDirty||this.skillSetsDirty||this.equipmentPermissionsDirty||this.shopHiringDirty;}
  get contentChanged(){
   const saved=JSON.parse(this.original);
   return ['rougesReborn','throwReborn','proficiencyII','specialClassChange','advancedBeastFamilies','genericSpecialRecruitment','aiChoices','pspSpellRuntime','dorgaluaXLFix',...expandedBattleOptions.map(([key])=>key)]
@@ -142,6 +149,8 @@ export class MenuMods{
   const spellSets=structuredClone(this.spellSets);
   const skillSets=structuredClone(this.skillSets);
   const equipmentPermissions=structuredClone(this.equipmentPermissions);
+  const hiringRoster=structuredClone(this.shopHiringRoster);
+  const hiringPlan=structuredClone(this.shopHiringPlan);
   const builtinOverrides=structuredClone(this.builtinClassGroupOverrides);
   const settings=JSON.parse(value);
   if (!this.info.dorgaluaXLFixVersion) delete settings.dorgaluaXLFix;
@@ -163,11 +172,16 @@ export class MenuMods{
    communitySpellSets:this.spellSetsDirty?spellSets:undefined,
    communitySkillSets:this.skillSetsDirty?skillSets:undefined,
    communityEquipmentPermissions:this.equipmentPermissionsDirty?equipmentPermissions:undefined,
+   shopHiringRoster:JSON.stringify(hiringRoster)!==JSON.stringify(this.savedShopHiringRoster)?hiringRoster:undefined,
+   shopHiringPlan:this.shopHiringDirty?hiringPlan:undefined,
   });
   this.original=value;this.originalGroups=groups;this.originalSets=sets;
   if (typeof saved.expandedBattleLimit==='boolean') this.syncBattleExpansion(saved.expandedBattleLimit);
   this.savedBuiltinClassGroupOverrides=builtinOverrides;
-  this.savedSpellSets=spellSets;this.savedSkillSets=skillSets;this.savedEquipmentPermissions=equipmentPermissions;return true;
+  this.savedSpellSets=spellSets;this.savedSkillSets=skillSets;this.savedEquipmentPermissions=equipmentPermissions;
+  this.savedShopHiringRoster=hiringRoster;
+  this.savedShopHiringPlan=hiringPlan;
+  return true;
  }
  startingCardsEnabled(key){return (this.value[key]??emptyCards()).some(Boolean);}
  startingCardsChanged(key){
@@ -316,8 +330,9 @@ export class MenuMods{
  renderWeaponMod(detail,onChange,ed,key,title){
   const rogue=key==='rougesReborn';
   const supported=this.info.weaponModsVersion>=(rogue?2:1)&&!!this.info.project;
-  const disabled=!supported||ed.ctx.readOnly?.();
   const proficiency=key==='proficiencyII';
+  const blocked=proficiency&&this.value.expandedLoadout&&!this.value[key];
+  const disabled=!supported||ed.ctx.readOnly?.()||blocked;
   const about=rogue
     ?'Restores the playable Rogue and its Bandit’s Mark. Rogues learn Gold, Loot, random Steal and directed equipment theft as they level, with Booby Trap, Detect and Disarm.'
     :proficiency
@@ -328,6 +343,7 @@ export class MenuMods{
     :(this.value.proficiencyII?'Proficiency II is enabled, so Thrown II is included.':'Enable Proficiency II in this project to include Thrown II.');
   detail.innerHTML=`<div class="data-head"><div><h1>${title}</h1><p class="muted">Integrated mods · Project settings</p></div></div>
    ${!supported?'<p class="hint">Open a project in the updated editor to configure this mod.</p>':''}
+   ${blocked?'<p class="hint warn">Disable Expand Skill &amp; Spell Slots to enable Proficiency II.</p>':''}
    <label class="menu-mod-option"><input type="checkbox" data-weapon-mod ${this.value[key]?'checked':''} ${disabled?'disabled':''}><span><b>Enable ${title}</b><small>${about}</small></span></label>
    ${rogue?'':`<p class="hint">${thrownII}</p>`}
    <p class="hint">Use Save to keep this choice with the project, then Apply Project to build the game files.</p>`;
@@ -505,17 +521,28 @@ export class MenuMods{
   detail.innerHTML=`<div class="data-head"><div><h1>Bug Fixes</h1><div class="meta">Integrated mods · ${this.info.project?'saved with this project':'game settings'}</div></div></div><div class="mod-details"></div>`;
   this.renderOptions(detail.querySelector('.mod-details'),onChange,ed,'bug-fixes');
  }
+ renderExpandedLoadout(detail,onChange,ed){
+  detail.innerHTML='<div class="data-head"><div><h1>Expand Skill &amp; Spell Slots</h1><div class="meta">Integrated mods</div><p class="mod-summary">Random enemy skills and spells can fill the extra slots when their Hard Mode options are enabled. The Save Editor can edit the extra slots after you apply the project.</p></div></div><div class="mod-details"></div>';
+  this.renderOptions(detail.querySelector('.mod-details'),onChange,ed,'expanded-loadout');
+ }
  renderOptions(detail,onChange,ed,scope){
   const resetLabel={menu:'Use normal menu behaviour',ai:'Disable AI Plus runtime options','bug-fixes':'Disable all fixes'}[scope];
-  const applyHint=scope==='menu'?'AI Plus options are saved separately in the same project.':this.info.project?'Save these choices with the project, then apply it for the next game launch.':'Save these choices with the game closed, then restart it.';
+  const applyHint=scope==='menu'?'AI Plus options are saved separately in the same project.':this.info.project?'Save these choices with the project, then apply it for the next game launch.':scope==='expanded-loadout'?'':'Save these choices with the game closed, then restart it.';
   const readOnly=!this.supported||ed.ctx.readOnly?.();
   const option=([key,label,about])=>{
    const xl=key==='dorgaluaXLFix';
-   const hint=xl&&!this.info.dorgaluaXLFixVersion?' Restart the editor to see this fix.':xl&&!this.info.project?' Open a project to enable this fix.':'';
+   const loadout=key==='expandedLoadout';
+   let hint=xl&&!this.info.dorgaluaXLFixVersion?' Restart the editor to see this fix.':xl&&!this.info.project?' Open a project to enable this fix.':'';
+   if(loadout){
+    if(!this.info.project)hint=' Open a project to enable this feature.';
+    else if(!this.info.expandedBattlesSupported)hint=' Requires Tactics Ogre Reborn on Steam 1.0.8.';
+    else if(this.value.proficiencyII&&!this.value.expandedLoadout)hint=' Disable Proficiency II to enable these slots.';
+   }
    return `<label class="menu-mod-option"><input type="checkbox" data-menu-mod="${key}" ${this.value[key]?'checked':''} ${readOnly||hint?'disabled':''}><span><b>${label}</b><small>${about}${hint}</small></span></label>`;
   };
-  detail.innerHTML=`${!this.supported?'<p class="hint warn">Restart the editor server to enable runtime options.</p>':''}${this.saved?.error?`<p class="hint warn">${esc(this.saved.error)}</p>`:''}${scopedOptions(scope).map(option).join('')}<div class="data-actions"><button data-native ${!this.enabledIn(scope)||readOnly?'disabled':''}>${resetLabel}</button></div><p class="hint">${this.dirtyIn(scope)?'Unsaved choices. Use the main Save button.':'Choices are saved.'} ${applyHint}</p>`;
+  detail.innerHTML=`${!this.supported?'<p class="hint warn">Restart the editor server to enable runtime options.</p>':''}${this.saved?.error?`<p class="hint warn">${esc(this.saved.error)}</p>`:''}${scopedOptions(scope).map(option).join('')}${resetLabel?`<div class="data-actions"><button data-native ${!this.enabledIn(scope)||readOnly?'disabled':''}>${resetLabel}</button></div>`:''}<p class="hint">${this.dirtyIn(scope)?'Unsaved choices. Use the main Save button.':'Choices are saved.'} ${applyHint}</p>`;
   for(const input of detail.querySelectorAll('[data-menu-mod]'))input.onchange=()=>{if(ed.ctx.readOnly?.())return;this.value[input.dataset.menuMod]=input.checked;if(input.dataset.menuMod==='aiChoices'&&input.checked&&!this.value.aiStatusAll)this.value.aiStatus=true;onChange();};
-  detail.querySelector('[data-native]').onclick=()=>{if(ed.ctx.readOnly?.())return;for(const [key]of scopedOptions(scope))this.value[key]=false;onChange();};
+  const reset=detail.querySelector('[data-native]');
+  if(reset)reset.onclick=()=>{if(ed.ctx.readOnly?.())return;for(const [key]of scopedOptions(scope))this.value[key]=false;onChange();};
  }
 }

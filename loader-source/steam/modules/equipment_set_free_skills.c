@@ -1,9 +1,12 @@
 /* The battle command picker reserves 300 entries. Add the current set's
  * active skill after the stock collector has gathered the regular slots. */
+static int (*eqs_collect_equipped_skills)(uint16_t *, const unsigned char *);
+
 static int eqs_collect_free_skill(uint16_t *out,const unsigned char *unit){
     typedef int (*Collect)(uint16_t *,const unsigned char *);
     typedef uint16_t (*SetSkill)(const unsigned char *);
-    int count=((Collect)(mm_base+0x3bfb20))(out,unit);
+    const Collect collect=eqs_collect_equipped_skills ? eqs_collect_equipped_skills : (Collect)(mm_base+0x3bfb20);
+    int count=collect(out,unit);
     const unsigned char *status=unit+0xbe;
     if(!status[1] || status[1]>=EQS_LIMIT || count<0 || count>=300)return count;
     uint16_t skill=((SetSkill)(mm_base+0x4484a0))(status);

@@ -24,7 +24,9 @@ export const UNIT = {
   cls: 0x88, level: 0x89, element: 0x8C,
   clan: 0x8D,          // bits 0-2 clan, bits 3-4 alignment (1 Lawful, 2 Neutral, 3 Chaotic)
   equipment: 0x93,     // 7 x u16 item ids
-  skills: 0xF0, skillCount: 4, skillStride: 6, // u16 id, u8 rank, (pad), u16 xp; the game shows 4 slots
+  skills: 0xF0, skillCount: 4, skillStride: 6, // u16 id, u8 rank, (pad), u16 xp
+  extraSkills: 0x108, expandedSlotCount: 8,
+  extraSpells: 0x120, loadoutSignature: 0x128,
   ranks: 0x251, rankCount: 100, rankStride: 8,  // per skill id: u8 rank, 3 pad, u32 xp (weapon skills 1-21)
   learned: 0x1D1,      // 800-bit set: skills unlocked by level, across all classes
   kept: 0x675,         // 800-bit set: current class's skill list (the skill screen); entries not
@@ -35,6 +37,7 @@ export const UNIT = {
   items: 0x134,        // 4 x u16 item ids (consumables)
   levelCopy: 0x156,    // u16, mirrors level
 };
+const LOADOUT_SIGNATURE = [0x54, 0x4f, 0x38, 1]; // Matches the runtime's TO8 signature.
 
 export const STATS = ['HP', 'MP', 'STR', 'VIT', 'DEX', 'AGI', 'AVD', 'INT', 'MND', 'RES'];
 const statOffsets = (hp, mp, first) => [hp, mp, ...Array.from({ length: 8 }, (_, k) => first + 2 * k)];
@@ -475,7 +478,8 @@ export class Unit {
     if (!isWeaponSkill(id)) return;
     rank = Math.max(0, Math.min(255, rank | 0));
     this.save.setU8(this.o + UNIT.ranks + UNIT.rankStride * id, rank);
-    for (let k = 0; k < UNIT.skillCount; k++) if (this.skill(k).id === id) this.save.setU8(this.o + UNIT.skills + UNIT.skillStride * k + 2, rank);
+    const slots = this.hasExpandedLoadout ? UNIT.expandedSlotCount : UNIT.skillCount;
+    for (let k = 0; k < slots; k++) if (this.skill(k).id === id) this.save.setU8(this.o + UNIT.skills + UNIT.skillStride * k + 2, rank);
   }
   get template() { return this.save.u16(this.o + UNIT.template); }
   get cls() { return this.save.u8(this.o + UNIT.cls); }
@@ -492,18 +496,46 @@ export class Unit {
 
   get equipment() { return Array.from({ length: 7 }, (_, k) => this.save.u16(this.o + UNIT.equipment + 2 * k)); }
   setEquipment(k, id) { this.save.setU16(this.o + UNIT.equipment + 2 * k, id); }
-  get spells() { return Array.from({ length: 4 }, (_, k) => this.save.u16(this.o + UNIT.spells + 2 * k)); }
-  setSpell(k, id) { this.save.setU16(this.o + UNIT.spells + 2 * k, id); }
+  get hasExpandedLoadout() {
+    return LOADOUT_SIGNATURE.every((byte, i) => this.save.bytes[this.o + UNIT.loadoutSignature + i] === byte);
+  }
+  get canExpandLoadout() {
+    return this.hasExpandedLoadout || !this.save.bytes.subarray(this.o + UNIT.extraSkills, this.o + UNIT.spells).some(Boolean);
+  }
+  claimExpandedLoadout() {
+    if (!this.canExpandLoadout) throw new Error('This unit already has data in the extra loadout fields.');
+    this.save.bytes.set(LOADOUT_SIGNATURE, this.o + UNIT.loadoutSignature);
+  }
+  equippedSpells(count = UNIT.skillCount) {
+    return Array.from({ length: count }, (_, k) => {
+      if (k < UNIT.skillCount) return this.save.u16(this.o + UNIT.spells + 2 * k);
+      return this.hasExpandedLoadout ? this.save.u16(this.o + UNIT.extraSpells + 2 * (k - UNIT.skillCount)) : 0;
+    });
+  }
+  setSpell(k, id) {
+    if (!Number.isInteger(k) || k < 0 || k >= UNIT.expandedSlotCount) throw new RangeError('Unknown spell slot.');
+    if (k < UNIT.skillCount) this.save.setU16(this.o + UNIT.spells + 2 * k, id);
+    else if (id || this.hasExpandedLoadout) {
+      this.claimExpandedLoadout();
+      this.save.setU16(this.o + UNIT.extraSpells + 2 * (k - UNIT.skillCount), id);
+    }
+  }
   get items() { return Array.from({ length: 4 }, (_, k) => this.save.u16(this.o + UNIT.items + 2 * k)); }
   setItem(k, id) { this.save.setU16(this.o + UNIT.items + 2 * k, id); }
   get finishers() { return Array.from({ length: 8 }, (_, k) => this.save.u16(this.o + UNIT.finishers + 2 * k)); }
 
   skill(k) {
+    if (k >= UNIT.skillCount && !this.hasExpandedLoadout) return { id: 0, rank: 0, xp: 0 };
     const at = this.o + UNIT.skills + UNIT.skillStride * k;
     return { id: this.save.u16(at), rank: this.save.u8(at + 2), xp: this.save.u16(at + 4) };
   }
   /** Equip a skill in slot k. Rank and XP come from the unit's rank table, like the game's cache. */
   setSkill(k, { id, rank }) {
+    if (!Number.isInteger(k) || k < 0 || k >= UNIT.expandedSlotCount) throw new RangeError('Unknown skill slot.');
+    if (k >= UNIT.skillCount) {
+      if (!id && !rank && !this.hasExpandedLoadout) return;
+      this.claimExpandedLoadout();
+    }
     const at = this.o + UNIT.skills + UNIT.skillStride * k;
     if (id !== undefined) {
       this.save.setU16(at, id);

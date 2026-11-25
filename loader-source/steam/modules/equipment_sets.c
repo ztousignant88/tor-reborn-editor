@@ -90,6 +90,7 @@ static int eqs_decode(const unsigned char *data,uint16_t *skills,unsigned char *
 
 #ifndef EQS_UNIT_TEST
 #include "equipment_set_free_skills.c"
+static int eqs_free_skill_installed;
 static void mm_install_equipment_sets(const wchar_t *config) {
     if (!GetPrivateProfileIntW(L"ModPreparationEquipmentSets",L"Enabled",0,config)) return;
     int free_skill=GetPrivateProfileIntW(L"ModPreparationEquipmentSets",L"SlotFreeSkills",0,config)==1;
@@ -182,6 +183,7 @@ static void mm_install_equipment_sets(const wchar_t *config) {
             return;
         }
     }
+    eqs_free_skill_installed=free_skill;
     mm_log("Equipment sets: community bonuses enabled.\r\n");
     return;
 unsupported:

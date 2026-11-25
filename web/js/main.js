@@ -2,7 +2,7 @@ import {BattleConditionsPanel} from './app/battleconditions.js';
 import { source } from './game/source.js';
 import { loadTexts, LANGUAGES } from './game/texts.js';
 import { GameTables, TEAMS, ELEMENTS } from './game/tables.js';
-import { FIELD, LARGEST_STOCK_BATTLE, encodeField, readField } from './game/entryunit.js';
+import { FIELD, LARGEST_STOCK_BATTLE, battleFieldPatch, encodeField, readField } from './game/entryunit.js';
 import { displayHeight } from './game/bgmap.js';
 import { playerStartTiles } from './game/battlepreview.js';
 import { BattleDoc, loadAllBattles, History, newUnit, saveBattles } from './app/battles.js';
@@ -149,8 +149,14 @@ function showActiveView() {
 
 const inspector = new Inspector($('#inspector'), {
   get tables() { return state.tables; },
+  expandedLoadout: () => {
+    const mods = dataEditor?.menuMods;
+    return state.info?.project && (mods?.info.project === state.info.project
+      ? mods.value.expandedLoadout : state.info.expandedLoadout);
+  },
   lang: () => $('#lang').value,
   apply: (fd, value) => applyField(state.slot, fd, value),
+  applyBlock: ({ offset, bytes }, label) => applyBytes(state.slot, offset, bytes, label),
   applyRaw: (offset, byte) => applyBytes(state.slot, offset, new Uint8Array([byte]), `+${offset.toString(16)}`),
   setSprite: (sprite) => setSprite(state.slot, sprite),
 });
@@ -504,7 +510,7 @@ function applyBytes(slot, offset, bytes, label, sprite = null) {
 
 function applyField(slot, fd, value) {
   try {
-    const bytes = encodeField(fd, value);
+    const { offset, bytes } = battleFieldPatch(state.doc.row(slot), fd, value);
     let sprite = null;
     if (fd === FIELD.class || fd === FIELD.template) {
       // Class and template decide which graphics the battle must preload.
@@ -514,7 +520,7 @@ function applyField(slot, fd, value) {
       sprite = state.tables.spriteFor(next, unit.row, unit.sprite);
       if (!sprite) toast(`No known graphics rule for this ${fd.label.toLowerCase()}; the unit keeps its old sprite.`, true);
     }
-    applyBytes(slot, fd.offset, bytes, fd.label, sprite);
+    applyBytes(slot, offset, bytes, fd.label, sprite);
     if (fd === FIELD.x || fd === FIELD.z || fd === FIELD.facing) sync.unitMoved(state.doc, state.doc.units[slot]).catch((err) => toast(err.message, true));
   } catch (err) {
     toast(`${fd.label}: ${err.message}`, true);

@@ -123,9 +123,12 @@ def send_bytes(handler, data, **headers):
 def read_assets(handler, route, query):
     config = handler.config
     if route == "data/info":
-        installed = config.state().get("applied") or {}
+        state = config.state()
+        installed = state.get("applied") or {}
+        runtime = (state.get("menuRuntime") or {}).get("settings") or {}
         return handler._json({
             "dataRoot": str(config.data_root), "readOnly": config.read_only,
+            "expandedLoadout": bool(runtime.get("expandedLoadout")),
             "customCharacters": installed.get("customCharacters", []),
             "customIcons": installed.get("customIcons", []),
         })

@@ -87,7 +87,7 @@ export async function unzipSingle(zip) {
 export async function unzipPrefix(zip, maxBytes) {
   const h = readLocalHeader(zip);
   if (h.method !== 8) throw new Error('prefix read needs a deflated entry');
-  return inflateRaw(zip.subarray(h.dataOffset), Math.min(maxBytes, h.size));
+  return inflateRaw(zip.subarray(h.dataOffset, h.dataOffset + h.compressedSize), Math.min(maxBytes, h.size));
 }
 
 /**

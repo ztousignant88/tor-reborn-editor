@@ -583,7 +583,7 @@ def build_roster(fight, donor):
                                1: aligned(struct.pack('<I', len(units)) + bytes(12) + b''.join(sprites) + bytes(16))})
 
 
-def build(read, value, editor, custom=None, banner_for=None, limit=CAPACITY, assets=None, editor_view=False):
+def build(read, value, editor, custom=None, limit=CAPACITY, assets=None, editor_view=False):
     active = selected(value, custom)
     if not active:
         return {}
@@ -614,9 +614,6 @@ def build(read, value, editor, custom=None, banner_for=None, limit=CAPACITY, ass
         if 'sourceMap' in fight:
             path = map_path(fight)
             result[path] = assets[path] if path in assets else read(f"bg/{fight['sourceMap']}.dat")
-        banner = banner_for(fight) if fight.get('source') is not None else (ROOT / f'{key}-banner.dat').read_bytes()
-        for language in MAP_NAME_LANGUAGES:
-            result[banner_path(fight, language)] = banner
         text.update({f'{STRONGHOLD}{name_id:03d}_{suffix}': fight['title'].encode('utf-8') for suffix in ('NAME', 'NAME_2LINES')})
         text[f'{STRONGHOLD}{name_id:03d}_TEXT'] = fight['description'].encode('utf-8')
     result[BATTLE] = patch_battle(read(BATTLE), fights, counts)

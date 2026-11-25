@@ -369,9 +369,13 @@ def move_locations(data, moves):
     return encounters.replace(dat, pak, {23: points.replace(positions), 24: roads.replace(routes)})
 
 
+def banner_image(png):
+    return read_overlay(base64.b64decode(png, validate=True), BANNER_SIZE)
+
+
 @lru_cache(maxsize=64)
 def banner(node, png):
-    image = read_overlay(base64.b64decode(png, validate=True), BANNER_SIZE)
+    image = banner_image(png)
     template = (encounters.ROOT / 'finalShowdown-banner.dat').read_bytes()
     with ZipFile(BytesIO(encounters._crypt.decrypt(template))) as source:
         member, = source.namelist()
@@ -383,11 +387,38 @@ def banner(node, png):
     return bytes(encounters._crypt.encrypt(output.getvalue()))
 
 
+def banner_files(read, value, editor, only=None):
+    """Native title textures are large to encode. Build only the paths a caller needs."""
+    result = {}
+    for key, fight in encounters.selected(value, custom(value, editor)).items():
+        paths = [encounters.banner_path(fight, language) for language in LANGUAGES]
+        if only is not None:
+            paths = [path for path in paths if path == only]
+        if paths:
+            data = (banner(fight.get('nameId', fight['node']), fight['art']) if 'art' in fight
+                    else (encounters.ROOT / f'{key}-banner.dat').read_bytes())
+            result.update(dict.fromkeys(paths, data))
+    for node, row in edits(editor.get(KEY))['locations'].items():
+        if 'title' not in row:
+            continue
+        for language in LANGUAGES:
+            path = name_path(int(node), language)
+            if only is not None and path != only:
+                continue
+            try:
+                read(path)
+            except FileNotFoundError:
+                continue  # Some locations have text only.
+            result[path] = banner(int(node), row['art'])
+    return result
+
+
 def build(read, value, editor, assets=None, editor_view=False):
     saved = edits(editor.get(KEY))
     limit = encounters.CAPACITY if value.get(encounters.KEY) else encounters.STOCK_CAPACITY
-    result = encounters.build(read, value, editor, custom(value, editor),
-                              lambda fight: banner(fight.get('nameId', fight['node']), fight['art']), limit, assets, editor_view)
+    result = encounters.build(read, value, editor, custom(value, editor), limit, assets, editor_view)
+    if not editor_view:
+        result.update(banner_files(read, value, editor))
     if not saved['locations']:
         return result
     nodes, _, _, _ = map_tables(read)
@@ -422,11 +453,5 @@ def build(read, value, editor, assets=None, editor_view=False):
                 raise ValueError(f'The installed game is missing the name of location {node}.')
             label = row['title'].encode('utf-8')
             text[native] = text[native + '_2LINES'] = label
-            path = name_path(node, language)
-            try:
-                read(path)
-            except FileNotFoundError:
-                continue  # Some locations have text only.
-            result[path] = banner(node, row['art'])
         result[rel] = class_text.patch_archive(source, text, TEXT_PREFIX)
     return result

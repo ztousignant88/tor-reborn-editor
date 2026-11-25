@@ -4,6 +4,7 @@ from collections import defaultdict
 from functools import cached_property, lru_cache
 import struct
 
+from tools.menu_mods.compiler.loadout_controls import ENTRY_SPELL_ID_MASK, write_entry_spells
 from tools.menu_mods.compiler.tor_formats import u16
 
 
@@ -83,6 +84,7 @@ class Loadouts:
         self.spell_sets = spell_sets
         self.statuses = statuses
         self.settings = settings
+        self.loadout_slots = 8 if settings.get("expandedLoadout") else 4
         self.item_limit = min(game.items.count, 1000 if settings.get("modPreparation") else 732)
         self.learned_skills = lru_cache(maxsize=256)(self.learned_skills)
         self.learned_spells = lru_cache(maxsize=256)(self.learned_spells)
@@ -227,10 +229,10 @@ class Loadouts:
                 best[family] = ident
         for offset in range(0x22, 0x32, 4):
             ident = u16(donor, offset)
-            if ident in learned and learned[ident][7] not in WEAPON_TYPES and len(skills) < 4:
+            if ident in learned and learned[ident][7] not in WEAPON_TYPES and len(skills) < self.loadout_slots:
                 take(ident, u16(donor, offset + 2))
         choices = [ident for family, ident in best.items() if family not in families]
-        skills.extend((ident, 1) for ident in random.sample(choices, min(4 - len(skills), len(choices))))
+        skills.extend((ident, 1) for ident in random.sample(choices, min(self.loadout_slots - len(skills), len(choices))))
         return skills, finishers[:8]
 
     def fill(self, row, donor, klass, template, random):
@@ -254,7 +256,14 @@ class Loadouts:
             if lead:
                 spells.append(lead)
         choices = [ident for ident in pool if ident not in spells]
-        spells.extend(random.sample(choices, min(4 - len(spells), len(choices))))
+        if len(spells) < 4:
+            spells.extend(random.sample(choices, min(4 - len(spells), len(choices))))
+        if self.loadout_slots > 4 and len(spells) == 4:
+            choices = [ident for ident in choices if ident <= ENTRY_SPELL_ID_MASK and ident not in spells]
+            spells.extend(random.sample(choices, min(self.loadout_slots - 4, len(choices))))
+        if len(skills) > 4:
+            # Mark the row even for units with no scroll-backed spells.
+            spells.extend([0] * max(0, 5 - len(spells)))
         if not self.items:
             raise ValueError("The installed game data has no eligible non-orb consumables for Versus.")
         items = random.choices(self.items, k=4)
@@ -262,6 +271,7 @@ class Loadouts:
         for i, (ident, rank) in enumerate(skills):
             struct.pack_into("<HH", row, 0x22 + 4 * i, ident, rank)
         for values, offset, stride in ((gear, 0x4a, 4), (items, 0x66, 4),
-                                       (spells, 0x86, 2), (finishers, 0x9c, 2)):
+                                       (finishers, 0x9c, 2)):
             for i, ident in enumerate(values):
                 struct.pack_into("<H", row, offset + stride * i, ident)
+        write_entry_spells(row, spells)

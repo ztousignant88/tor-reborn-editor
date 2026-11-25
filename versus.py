@@ -19,6 +19,7 @@ import save_editor
 import versus_generic_teams
 import versus_loadouts
 from tools.menu_mods.compiler.class_text import read_archive
+from tools.menu_mods.compiler.loadout_controls import write_entry_spells
 from tools.menu_mods.compiler.tor_formats import Xlce, filetable_records, u16, u32
 
 
@@ -557,14 +558,19 @@ def unit_row(game, unit, position, side, event_id, facing):
     for i, item in enumerate(unit["equipment"]):
         struct.pack_into("<H", row, 0x4a + i * 4, item)
     for i in range(4):
-        skill_offset = 0xf0 + i * 6
-        skill = u16(saved, skill_offset)
         item = u16(saved, 0x134 + i * 2)
-        book = u16(saved, 0x12c + i * 2)
-        if skill:
-            checked_row(game.skills, skill, "Skill")
         if item:
             checked_row(game.items, item - 1000, "Consumable")
+        struct.pack_into("<H", row, 0x66 + i * 4, item)
+    expanded = game.runtime_settings.get("expandedLoadout") and saved[0x128:0x12c] == b"TO8\x01"
+    effects = []
+    for i in range(8 if expanded else 4):
+        skill_offset = 0xf0 + i * 6
+        skill = u16(saved, skill_offset)
+        book_offset = 0x12c + i * 2 if i < 4 else 0x120 + (i - 4) * 2
+        book = u16(saved, book_offset)
+        if skill:
+            checked_row(game.skills, skill, "Skill")
         effect = 0
         if book:
             record = checked_row(game.items, book - 1000, "Spellbook")
@@ -573,8 +579,8 @@ def unit_row(game, unit, position, side, event_id, facing):
             effect = u16(record, 4)
             checked_row(game.effects, effect, "Spell")
         struct.pack_into("<HH", row, 0x22 + i * 4, skill, saved[skill_offset + 2])
-        struct.pack_into("<H", row, 0x66 + i * 4, item)
-        struct.pack_into("<H", row, 0x86 + i * 2, effect)
+        effects.append(effect)
+    write_entry_spells(row, effects)
     for i in range(8):
         effect = u16(saved, 0x73 + i * 2)
         if effect:

@@ -141,7 +141,7 @@ export class Projects {
     if (!plan) return;
     const write = plan.files.filter((f) => f.status !== 'same').map((f) => f.path);
     const same = plan.files.filter((f) => f.status === 'same').length;
-    const others = revertOthers ? plan.others : [...new Set([...(plan.classRestore ?? []), ...(plan.weaponRestore ?? []), ...(plan.spellRestore ?? []), ...(plan.levelCapRestore ?? []), ...(plan.aiChoiceRestore ?? []), ...(plan.dorgaluaXLRestore ?? []), ...(plan.encounterRestore ?? [])])];
+    const others = revertOthers ? plan.others : [...new Set([...(plan.classRestore ?? []), ...(plan.weaponRestore ?? []), ...(plan.spellRestore ?? []), ...(plan.levelCapRestore ?? []), ...(plan.aiChoiceRestore ?? []), ...(plan.dorgaluaXLRestore ?? []), ...(plan.encounterRestore ?? []), ...(plan.expandedLoadoutRestore ?? [])])];
     const runtimeFiles=plan.runtime?.changed??[];
     if (!write.length && !others.length && !runtimeFiles.length) { this.ctx.toast(`Everything in "${pick}" is already in the game.`); return; }
     const text = [

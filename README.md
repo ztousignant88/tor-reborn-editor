@@ -1,6 +1,6 @@
 # TO:R Editor
 
-**November 19, 2026**
+**November 25, 2026**
 
 A free, unofficial Windows editor for Tactics Ogre: Reborn. Edit battles, maps, cutscenes, game data, AI and art, and use Integrated Mods to configure gameplay changes per project.
 
@@ -57,6 +57,18 @@ When you add a unit in **Battles**, Save checks that the stage will load enough 
 **Share a project:** Zip the individual folder under `editor/projects` that contains `project.json` and `files`. The recipient extracts that folder under their own `editor/projects`, then loads and applies it. Use **Files → Merge Projects…** to review conflicts before combining edits. Review exported art packages and project files for third-party game assets before sharing them.
 
 **Edit a game save:** Open **Files → Save Editor…** and choose a profile and slot. The save editor reads names and art from the installed game. It can edit your army, inventory, campaign records, faction reputation, shop level, and the Auto-battle and Chariot Tarot unlocks. See the [Save Editor guide](docs/Save%20Editor.md) for supported save layouts and backups.
+
+## Shop Hiring
+
+Open a project and choose **Stats & Values → Others → Shop hiring**. Choose **Fixed roster** to fill the shop's ten Hire slots, or **Random pool** to draw ten offers from a list you build. The random pool can include custom choices, recruitable large monsters, or both. You can reroll after a battle, when reopening Hire, or at both points.
+
+The **Character or pool** picker accepts generic and special character sheets. A special character's sheet supplies its identity and appearance. Save and apply the project, then restart the game to see the new offers.
+
+## Expand Skill & Spell Slots
+
+On Steam **1.0.8.0**, open a project and enable **Integrated Mods → Expand Skill & Spell Slots**. It adds a second row of four slots to Spells and Skills in Unit Details. The Battles editor exposes the extra slots for roster assignments. The Save Editor uses the expanded slots after you apply the project.
+
+Hard Mode's random enemy skills and spells can fill vacant slots in both rows. Save and apply the project, then restart the game. Proficiency II uses the same equipment hooks and cannot be enabled alongside this version.
 
 ## Large battles and overworld encounters
 

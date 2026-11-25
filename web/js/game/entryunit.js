@@ -7,6 +7,24 @@ import { ALIGNMENTS, CLANS, ELEMENTS, FACING, TEAMS } from './tables.js';
 
 export const UNIT_ROW_SIZE = 196;
 export const LARGEST_STOCK_BATTLE = 30; // most units in any story battle's file
+export const STOCK_LOADOUT_SLOTS = 4;
+export const EXPANDED_LOADOUT_SLOTS = 8;
+
+// The Steam battle loader only reads skills 1–4. Store the extra skills in
+// records 5–8 and use records 9–10 for four tagged 12-bit spell effect IDs.
+// Keep these offsets and tags in sync with expanded_loadout_entry.c.
+const EXTRA_SKILL_AT = 0x32;
+const EXTRA_SPELL_AT = 0x42;
+const SPELL_TAGS = [0xd000, 0xe000, 0xf000, 0xc000];
+const SPELL_ID_MASK = 0x0fff;
+
+export function hasExpandedLoadout(row) {
+  return SPELL_TAGS.every((tag, slot) => (row[EXTRA_SPELL_AT + 2 * slot + 1] & 0xf0) === tag >>> 8);
+}
+
+export function canExpandLoadout(row) {
+  return hasExpandedLoadout(row) || !row.subarray(EXTRA_SKILL_AT, 0x4a).some(Boolean);
+}
 
 const align16 = (n) => (n + 15) & ~15;
 
@@ -126,13 +144,15 @@ export const FIELDS = [
     { key: 'qty', label: 'qty', offset: 2, kind: 'u8' },
     { key: 'chance', label: 'chance %', offset: 3, kind: 'u8' },
   ]),
-  ...repeat('skill', 'Skill', 0x22, 10, 4, [
+  ...repeat('skill', 'Skill', 0x22, EXPANDED_LOADOUT_SLOTS, 4, [
     { key: 'id', label: '', offset: 0, kind: 'u16', extra: { list: 'skill' } },
     { key: 'rank', label: 'rank', offset: 2, kind: 'u16' },
   ]),
   ...repeat('spell', 'Spell', 0x86, 4, 2, [
     { key: 'id', label: '', offset: 0, kind: 'u16', extra: { list: 'spell' } },
   ]),
+  ...SPELL_TAGS.map((tag, slot) => f(`spell${slot + 4}_id`, `Spell ${slot + 5}`, EXTRA_SPELL_AT + 2 * slot,
+    'u16', { list: 'spell', slot: slot + 4, part: 'id', group: 'spell', tag })),
   ...repeat('finisher', 'Finisher', 0x9C, 8, 2, [
     { key: 'id', label: '', offset: 0, kind: 'u16', extra: { list: 'finisher' } },
   ]),
@@ -152,12 +172,13 @@ export const UNKNOWN_BYTES = (() => {
 })();
 
 export function readField(row, fd) {
+  if (isExpandedLoadoutField(fd) && !hasExpandedLoadout(row)) return 0;
   const v = new DataView(row.buffer, row.byteOffset, row.byteLength);
   switch (fd.kind) {
     case 'u8': return v.getUint8(fd.offset);
     case 'i8': return v.getInt8(fd.offset);
     case 'bool': return v.getUint8(fd.offset) !== 0;
-    case 'u16': return v.getUint16(fd.offset, true);
+    case 'u16': return v.getUint16(fd.offset, true) & (fd.tag ? SPELL_ID_MASK : 0xffff);
     default: throw new Error(fd.kind);
   }
 }
@@ -168,9 +189,34 @@ export function encodeField(fd, value) {
     case 'u8': return new Uint8Array([clamp(value, 0, 255)]);
     case 'i8': return new Uint8Array([clamp(value, -128, 127) & 0xFF]);
     case 'bool': return new Uint8Array([value ? 1 : 0]);
-    case 'u16': { const n = clamp(value, 0, 65535); return new Uint8Array([n & 0xFF, n >> 8]); }
+    case 'u16': {
+      if (fd.tag && Number(value) > SPELL_ID_MASK) throw new Error('This slot supports spell effect IDs through 4095.');
+      const n = clamp(value, 0, fd.tag ? SPELL_ID_MASK : 0xffff) | (fd.tag ?? 0);
+      return new Uint8Array([n & 0xff, n >> 8]);
+    }
     default: throw new Error(fd.kind);
   }
+}
+
+function isExpandedLoadoutField(fd) {
+  return fd.slot >= STOCK_LOADOUT_SLOTS && (fd.group === 'spell' || fd.group === 'skill');
+}
+
+export function initializeBattleLoadout() {
+  const bytes = new Uint8Array(0x4a - EXTRA_SKILL_AT);
+  SPELL_TAGS.forEach((tag, slot) => { bytes[EXTRA_SPELL_AT - EXTRA_SKILL_AT + 2 * slot + 1] = tag >>> 8; });
+  return { offset: EXTRA_SKILL_AT, bytes };
+}
+
+export function battleFieldPatch(row, fd, value) {
+  const bytes = encodeField(fd, value);
+  if (!isExpandedLoadoutField(fd)) return { offset: fd.offset, bytes };
+  if (!canExpandLoadout(row)) throw new Error('This unit has existing data in the extra loadout fields.');
+  if (hasExpandedLoadout(row)) return { offset: fd.offset, bytes };
+  if (!Number(value)) return { offset: fd.offset, bytes: new Uint8Array(bytes.length) };
+  const patch = initializeBattleLoadout();
+  patch.bytes.set(bytes, fd.offset - patch.offset);
+  return patch;
 }
 
 function clamp(value, lo, hi) {

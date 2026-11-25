@@ -8,7 +8,7 @@
 import { loadMapGrid, readMapInfo } from '../game/bgmap.js';
 import { loadScene } from '../game/bgscene.js';
 import { FIELD, readField } from '../game/entryunit.js';
-import { source, mapLimit } from '../game/source.js';
+import { source, loadStartupFiles } from '../game/source.js';
 import { MapPreferences } from './mappreferences.js';
 
 const store = {
@@ -62,18 +62,20 @@ export class MapCatalog {
     const cacheKey = this.preferences.key('mapinfo');
     const cache = store.get(cacheKey, {});
     let done = 0;
-    this.maps = (await mapLimit(files, 8, async (f) => {
-      const cacheKey = `${f.name}:${f.size}`;
+    const fileKey = f => `${f.name}:${f.size}`;
+    const missing = files.filter(f => !cache[fileKey(f)]);
+    await loadStartupFiles('bg', missing, async (f, loaded) => {
       try {
-        if (!cache[cacheKey]) cache[cacheKey] = await readMapInfo(`bg/${f.name}`);
-        return { ...cache[cacheKey], file: f.name, id: f.name.replace(/\.dat$/i, '') };
+        cache[fileKey(f)] = await readMapInfo(`bg/${f.name}`, loaded);
       } catch (err) {
         console.warn(`map ${f.name}:`, err);
-        return null;
       } finally {
-        onProgress?.(++done, files.length);
+        onProgress?.(++done, missing.length);
       }
-    })).filter(Boolean);
+    });
+    this.maps = files.filter(f => cache[fileKey(f)]).map(f => ({
+      ...cache[fileKey(f)], file: f.name, id: f.name.replace(/\.dat$/i, ''),
+    }));
     store.set(cacheKey, cache);
   }
 

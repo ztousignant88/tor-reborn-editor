@@ -22,6 +22,7 @@ import struct
 
 from ai_choices_data import rebuild_pakd
 from tools.menu_mods.compiler.class_text import Txte
+from tools.menu_mods.compiler.loadout_controls import ENTRY_SPELL_TAGS, ENTRY_SPELL_ID_MASK
 from tools.menu_mods.compiler.tor_formats import DatArchive, Pakd, Xlce
 
 BATTLE = 'battle/battle_data_release.dat'
@@ -346,6 +347,16 @@ def renumber(config, current, incoming, left, right, named_classes, find_base, e
                         else:
                             put16(row, at, n)
                 if path != MENU:
+                    if t.row_size == 196 and all(
+                        u16(row, 0x42 + 2*k) & 0xf000 == tag for k, tag in enumerate(ENTRY_SPELL_TAGS)
+                    ):
+                        for k, tag in enumerate(ENTRY_SPELL_TAGS):
+                            at = 0x42 + 2*k
+                            effect = u16(row, at) & ENTRY_SPELL_ID_MASK
+                            replacement = by_value.get(16, {}).get(effect, effect)
+                            if replacement > ENTRY_SPELL_ID_MASK:
+                                raise Unsafe(f'A unit in {path} uses an extra spell slot. Effect #{replacement} does not fit.')
+                            put16(row, at, tag | replacement)
                     for at, to in UNIT_GUESS:
                         if to in by_value and u16(row, at) in by_value[to]:
                             raise Unsafe(f'A unit in {path} lists ID {u16(row, at)} as a spell or finisher, '

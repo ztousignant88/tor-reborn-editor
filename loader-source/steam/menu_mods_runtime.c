@@ -175,6 +175,8 @@ static int mm_install_fast_forward(void){
 #include "modules/versus_pilot.c"
 #define GUEST_CONTROL_STEAM
 #include "../guest_control.h"
+#define SHOP_HIRING_STEAM
+#include "../shop_hiring.h"
 #include "modules/enemy_starting_cards.c"
 #include "modules/enemy_levels.c"
 #include "modules/enemy_finishers.c"
@@ -192,6 +194,7 @@ static int mfx_spellbook_capacity_active;
 #include "modules/effect_runtime.c"
 #include "modules/custom_icon_lookup.c"
 #include "modules/item_text_runtime.c"
+#include "modules/expanded_loadout_runtime.c"
 
 #include "shared_combat.h"
 BOOL WINAPI ThrowRebornInstall(void);
@@ -213,6 +216,7 @@ static DWORD WINAPI mm_initialize(void *module){
     wcscpy(config,mm_log_path);slash=wcsrchr(config,L'\\');wcscpy(slash+1,L"menu-mods.ini");
     mm_install_world_map_battles(config);
     mm_install_guest_control(config);
+    mm_install_shop_hiring(config);
     const int equipment_expanded = GetPrivateProfileIntW(L"ModPreparationEquipment", L"Enabled", 0, config) != 0;
     if (GetPrivateProfileIntW(L"BattleCapacity", L"Enabled", 0, config)) {
         if (battle_capacity_install(mm_base, nt->OptionalHeader.SizeOfImage, equipment_expanded) != 1) {
@@ -288,6 +292,11 @@ static DWORD WINAPI mm_initialize(void *module){
             ExitProcess(ERROR_BAD_FORMAT);
         }
         mm_log("Mod Preparation equipment routes installed.\r\n");
+    }
+    if (!mm_install_expanded_loadout(config)) {
+        MessageBoxW(NULL, L"Expanded Loadout could not start. Check menu-mods.log or restore the previous build.",
+                    L"Tactics Ogre Reborn", MB_OK | MB_ICONERROR);
+        ExitProcess(ERROR_BAD_FORMAT);
     }
     if(!GetPrivateProfileIntW(L"FastForward",L"Enabled",0,config)){mm_log("Fast Forward module disabled by config.\r\n");return 0;}
     (void)mm_install_fast_forward();
