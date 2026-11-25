@@ -7,11 +7,13 @@ const startingCards=[
  [0,'None'],[1,'Physical Attack'],[2,'Magic Attack'],[3,'Critical Rate'],[13,'MP Recovery'],[15,'Auto Skill'],
 ].map(([id,name])=>({id,name,art:id?()=>startingCardArt(id):undefined}));
 const emptyCards=()=>[0,0,0,0];
-const expandedBattleOptions=[
- ['expandedBattleLimit','Expanded Battle Limit (62 units)','Raises the battle limit from 30 to 62 slots, including player deployment, allies and enemies. The Battles editor uses the larger limit. Battle Suspend is disabled in battles using the extra slots.'],
+const battleLimitOption=['expandedBattleLimit','Expanded Battle Limit (62 units)','Raises the battle limit from 30 to 62 slots, including player deployment, allies and enemies. The Battles editor uses the larger limit. Battle Suspend is disabled in battles using the extra slots. Turning this off also turns off The Final Showdown and The Walking Dead.'];
+const overworldEncounterOptions=[
  ['finalShowdown','The Final Showdown','Adds a replayable fight east of Phorampa with 50 bosses and 12 deployment slots.'],
  ['walkingDead','The Walking Dead','Adds a replayable fight west of Phorampa. Human Nybeth leads 50 enemies, including the undead versions of Leonar, Gildas, Xaebos, Hektor, Cassandra and Moldova.'],
 ];
+const expandedBattleOptions=[battleLimitOption,...overworldEncounterOptions];
+const battleOptionControl=([key,title,help],value,disabled)=>`<label class="menu-mod-option"><input type="checkbox" data-expanded-battle="${key}" ${value[key]?'checked':''} ${disabled?'disabled':''}><span><b>${title}</b><small>${help}</small></span></label>`;
 const options=[
  ['disableBuffCardSpawns','Disable battlefield card spawns','Stops recurring battlefield card spawns and cards from destroyed objects. Scripted cards and starting cards still apply. Restart and enter a fresh battle.'],
  ['aiChoices','Buff / Debuff Auto Battle buttons','Adds a cyan Buff button (AI 113) and a purple Debuff button (AI 114) to Auto Battle. Adds either profile if it is missing and keeps existing profile edits.'],
@@ -118,13 +120,24 @@ export class MenuMods{
    this.value.modPreparation=true;
   }
  }
- enabledIn(scope){return scopedOptions(scope).some(([k])=>this.value[k]);}
- dirtyIn(scope){const saved=JSON.parse(this.original);return scope==='versus'?this.value.versusEnabled!==saved.versusEnabled:scopedOptions(scope).some(([k])=>!!this.value[k]!==!!saved[k]);}
+ enabledIn(scope){
+  if(scope==='menu'&&(this.value.expandedBattleLimit||this.value.customShopHiring||this.value.shopHiringLargeMonsters))return true;
+  return scopedOptions(scope).some(([key])=>this.value[key]);
+ }
+ dirtyIn(scope){
+  const saved=JSON.parse(this.original);
+  if(scope==='versus')return this.value.versusEnabled!==saved.versusEnabled;
+  if(scope==='menu'&&(this.value.expandedBattleLimit!==saved.expandedBattleLimit||this.shopHiringDirty))return true;
+  return scopedOptions(scope).some(([key])=>!!this.value[key]!==!!saved[key]);
+ }
  statusEnabled(hardMode){return startingStatusesEnabled(this.value,hardMode);}
  statusChanged(hardMode){return startingStatusesChanged(this.value,JSON.parse(this.original),hardMode);}
  get enemyLevelsChanged(){const saved=JSON.parse(this.original);return !!this.value.enemyLevelScaling!==!!saved.enemyLevelScaling||this.value.enemyLevelOffset!==saved.enemyLevelOffset;}
- get expandedBattlesEnabled(){return expandedBattleOptions.some(([key])=>this.value[key]);}
- get expandedBattlesChanged(){const saved=JSON.parse(this.original);return expandedBattleOptions.some(([key])=>this.value[key]!==saved[key]);}
+ get overworldEncountersEnabled(){return overworldEncounterOptions.some(([key])=>this.value[key]);}
+ get overworldEncountersChanged(){
+  const saved=JSON.parse(this.original);
+  return overworldEncounterOptions.some(([key])=>this.value[key]!==saved[key]);
+ }
  syncBattleExpansion(enabled){
   const saved=JSON.parse(this.original);
   if(this.value.expandedBattleLimit===saved.expandedBattleLimit)this.value.expandedBattleLimit=enabled;
@@ -247,7 +260,6 @@ export class MenuMods{
   const supported=!!this.info.hardModeVersion&&!!this.info.project;
   const disabled=!supported||ed.ctx.readOnly?.();
   const expandedDisabled=disabled||!this.info.expandedBattlesSupported;
-  const expandedControl=([key,title,help])=>`<label class="menu-mod-option"><input type="checkbox" data-expanded-battle="${key}" ${this.value[key]?'checked':''} ${expandedDisabled?'disabled':''}><span><b>${title}</b><small>${help}</small></span></label>`;
   const loadoutControls=options=>options.filter(([, , , version=2])=>this.info.hardModeVersion>=version).map(([key,title,help])=>`<label class="menu-mod-option"><input type="checkbox" data-enemy-loadout="${key}" ${this.value[key]?'checked':''} ${disabled?'disabled':''}><span><b>${title}</b><small>${help}</small></span></label>`).join('');
   detail.innerHTML=`<div class="data-head"><div><h1>Hard Mode</h1><p class="muted">Integrated mods · Project settings</p></div></div>
    ${supported?'':'<p class="hint">Open a project in the updated editor to configure Hard Mode.</p>'}
@@ -277,12 +289,10 @@ export class MenuMods{
    </section>`:''}
    <section data-starting-cards></section>
    <section data-starting-status></section>
-   ${this.info.hardModeVersion>=10?`<section><h2>Large battles</h2>
+   ${this.info.hardModeVersion>=10?`<section><h2>Overworld encounters</h2>
     ${!this.info.expandedBattlesSupported?'<p class="hint">These options require Steam 1.0.8.0.</p>':''}
-    ${expandedControl(expandedBattleOptions[0])}
-    <h3>Overworld encounters</h3>
-    <p class="hint">Both roads open with Tynemouth Hill. Enabling either fight also enables the 62-unit limit.</p>
-    ${expandedBattleOptions.slice(1).map(expandedControl).join('')}
+    <p class="hint">Both roads open with Tynemouth Hill. Enabling either fight also turns on Expanded Battle Limit in Menu controls.</p>
+    ${overworldEncounterOptions.map(option=>battleOptionControl(option,this.value,expandedDisabled)).join('')}
    </section>`:''}
    <p class="hint">Save the project, then use Apply Project. The settings take effect the next time the game launches. Start a fresh battle to see new cards and loadouts.</p>`;
   detail.querySelector('[data-archer-range]').onchange=event=>{
@@ -290,13 +300,9 @@ export class MenuMods{
    this.value.enemyArcherRange=event.target.checked;
    onChange();
   };
-  const expandedControls=[...detail.querySelectorAll('[data-expanded-battle]')];
-  for(const control of expandedControls)control.onchange=()=>{
-   const key=control.dataset.expandedBattle;
-   this.value[key]=control.checked;
+  for(const control of detail.querySelectorAll('[data-expanded-battle]'))control.onchange=()=>{
+   this.value[control.dataset.expandedBattle]=control.checked;
    if(control.checked)this.value.expandedBattleLimit=true;
-   else if(key==='expandedBattleLimit')this.value.finalShowdown=this.value.walkingDead=false;
-   for(const input of expandedControls)input.checked=this.value[input.dataset.expandedBattle];
    onChange();
   };
   const poolEditor=detail.querySelector('[data-equipment-pool]');
@@ -514,8 +520,27 @@ export class MenuMods{
   section.append(list);
  }
  render(detail,onChange,ed){
-  detail.innerHTML=`<div class="data-head"><div><h1>Menu controls</h1><div class="meta">Integrated mods · ${this.info.project?'saved with this project':'game settings'}</div><p class="mod-summary">Choose the menu conveniences to include in this mod. AI settings are under AI Plus.</p><p class="hint">${this.info.project?'Use Save to store these choices in the project. Apply project installs them for the next game launch.':'Use Save to install these settings for the next launch. Close the game before saving changes here.'}</p></div></div><div class="mod-details"></div>`;
-  this.renderOptions(detail.querySelector('.mod-details'),onChange,ed,'menu');
+  const battleHint=!this.info.project?'Open a project to enable the expanded battle limit.':
+   !this.info.expandedBattlesSupported?'Expanded Battle Limit requires Steam 1.0.8.0.':'';
+  detail.innerHTML=`<div class="data-head"><div><h1>Menu controls</h1><div class="meta">Integrated mods · ${this.info.project?'saved with this project':'game settings'}</div><p class="hint">${this.info.project?'Use Save to store these choices in the project. Apply Project installs them for the next game launch.':'Use Save to install these settings for the next launch. Close the game before saving changes here.'}</p></div></div>
+   <div class="mod-details">
+    <section><h2>General controls</h2><div data-menu-options></div></section>
+    ${this.info.hardModeVersion>=10?`<section><h2>Large battles</h2>
+     ${battleOptionControl(battleLimitOption,this.value,!!battleHint||ed.ctx.readOnly?.())}
+     ${battleHint?`<p class="hint">${battleHint}</p>`:''}
+    </section>`:''}
+    <section data-shop-hiring></section>
+   </div>`;
+  const battleLimit=detail.querySelector('[data-expanded-battle="expandedBattleLimit"]');
+  if(battleLimit)battleLimit.onchange=()=>{
+   this.value.expandedBattleLimit=battleLimit.checked;
+   if(!battleLimit.checked){
+    for(const [key] of overworldEncounterOptions)this.value[key]=false;
+   }
+   onChange();
+  };
+  ed.panels.others.hiring.renderRoster(detail.querySelector('[data-shop-hiring]'),onChange,{embedded:true});
+  this.renderOptions(detail.querySelector('[data-menu-options]'),onChange,ed,'menu');
  }
  renderBugFixes(detail,onChange,ed){
   detail.innerHTML=`<div class="data-head"><div><h1>Bug Fixes</h1><div class="meta">Integrated mods · ${this.info.project?'saved with this project':'game settings'}</div></div></div><div class="mod-details"></div>`;
@@ -526,8 +551,8 @@ export class MenuMods{
   this.renderOptions(detail.querySelector('.mod-details'),onChange,ed,'expanded-loadout');
  }
  renderOptions(detail,onChange,ed,scope){
-  const resetLabel={menu:'Use normal menu behaviour',ai:'Disable AI Plus runtime options','bug-fixes':'Disable all fixes'}[scope];
-  const applyHint=scope==='menu'?'AI Plus options are saved separately in the same project.':this.info.project?'Save these choices with the project, then apply it for the next game launch.':scope==='expanded-loadout'?'':'Save these choices with the game closed, then restart it.';
+  const resetLabel={menu:'Reset general controls',ai:'Disable AI Plus runtime options','bug-fixes':'Disable all fixes'}[scope];
+  const applyHint=scope==='menu'?'':this.info.project?'Save these choices with the project, then apply it for the next game launch.':scope==='expanded-loadout'?'':'Save these choices with the game closed, then restart it.';
   const readOnly=!this.supported||ed.ctx.readOnly?.();
   const option=([key,label,about])=>{
    const xl=key==='dorgaluaXLFix';
@@ -540,9 +565,10 @@ export class MenuMods{
    }
    return `<label class="menu-mod-option"><input type="checkbox" data-menu-mod="${key}" ${this.value[key]?'checked':''} ${readOnly||hint?'disabled':''}><span><b>${label}</b><small>${about}${hint}</small></span></label>`;
   };
-  detail.innerHTML=`${!this.supported?'<p class="hint warn">Restart the editor server to enable runtime options.</p>':''}${this.saved?.error?`<p class="hint warn">${esc(this.saved.error)}</p>`:''}${scopedOptions(scope).map(option).join('')}${resetLabel?`<div class="data-actions"><button data-native ${!this.enabledIn(scope)||readOnly?'disabled':''}>${resetLabel}</button></div>`:''}<p class="hint">${this.dirtyIn(scope)?'Unsaved choices. Use the main Save button.':'Choices are saved.'} ${applyHint}</p>`;
+  const choices=scopedOptions(scope);
+  detail.innerHTML=`${!this.supported?'<p class="hint warn">Restart the editor server to enable runtime options.</p>':''}${this.saved?.error?`<p class="hint warn">${esc(this.saved.error)}</p>`:''}${choices.map(option).join('')}${resetLabel?`<div class="data-actions"><button data-native ${!choices.some(([key])=>this.value[key])||readOnly?'disabled':''}>${resetLabel}</button></div>`:''}<p class="hint">${this.dirtyIn(scope)?'Unsaved choices. Use the main Save button.':'Choices are saved.'} ${applyHint}</p>`;
   for(const input of detail.querySelectorAll('[data-menu-mod]'))input.onchange=()=>{if(ed.ctx.readOnly?.())return;this.value[input.dataset.menuMod]=input.checked;if(input.dataset.menuMod==='aiChoices'&&input.checked&&!this.value.aiStatusAll)this.value.aiStatus=true;onChange();};
   const reset=detail.querySelector('[data-native]');
-  if(reset)reset.onclick=()=>{if(ed.ctx.readOnly?.())return;for(const [key]of scopedOptions(scope))this.value[key]=false;onChange();};
+  if(reset)reset.onclick=()=>{if(ed.ctx.readOnly?.())return;for(const [key]of choices)this.value[key]=false;onChange();};
  }
 }

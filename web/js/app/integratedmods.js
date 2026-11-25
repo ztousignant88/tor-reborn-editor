@@ -34,8 +34,8 @@ export class IntegratedMods {
       render: (detail, onChange) => this.renderVersus(detail, onChange),
     });
     this.mods.push({key:'hard-mode',title:'Hard Mode',
-      applied:()=>!!ed.menuMods?.value.enemyArcherRange||!!ed.menuMods?.value.enemyLevelScaling||ed.menuMods?.enemyLoadoutsEnabled||ed.menuMods?.startingCardsEnabled('enemyStartingCards')||ed.menuMods?.statusEnabled(true)||ed.menuMods?.expandedBattlesEnabled,
-      changed:()=>!!ed.menuMods&&(!!ed.menuMods.value.enemyArcherRange!==!!JSON.parse(ed.menuMods.original).enemyArcherRange||ed.menuMods.startingCardsChanged('enemyStartingCards')||ed.menuMods.statusChanged(true)||ed.menuMods.enemyLevelsChanged||ed.menuMods.enemyLoadoutsChanged||ed.menuMods.expandedBattlesChanged),
+      applied:()=>!!ed.menuMods?.value.enemyArcherRange||!!ed.menuMods?.value.enemyLevelScaling||ed.menuMods?.enemyLoadoutsEnabled||ed.menuMods?.startingCardsEnabled('enemyStartingCards')||ed.menuMods?.statusEnabled(true)||ed.menuMods?.overworldEncountersEnabled,
+      changed:()=>!!ed.menuMods&&(!!ed.menuMods.value.enemyArcherRange!==!!JSON.parse(ed.menuMods.original).enemyArcherRange||ed.menuMods.startingCardsChanged('enemyStartingCards')||ed.menuMods.statusChanged(true)||ed.menuMods.enemyLevelsChanged||ed.menuMods.enemyLoadoutsChanged||ed.menuMods.overworldEncountersChanged),
       render:(detail,onChange)=>ed.menuMods.renderHardMode(detail,onChange,ed)});
     this.mods.push({key:'cheats',title:'Cheats',
       applied:()=>ed.menuMods?.cheatsEnabled,

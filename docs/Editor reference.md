@@ -1169,9 +1169,11 @@ Others category rows use the full name column; reward and set names wrap in the
 scrollable list. Native evidence: RVAs 4448F0, 445140, 445B30, 69AC58.
 
 
-### Others → Shop hiring
+### Menu controls and Others → Shop hiring
 
-Open a project and choose **Game default**, **Fixed roster**, or **Random pool**.
+Open a project and choose **Integrated Mods → Menu controls → Shop hiring** or
+**Stats & Values → Others → Shop hiring → Hiring roster**. Both views edit the
+same project settings. Choose **Game default**, **Fixed roster**, or **Random pool**.
 Fixed roster edits the ten slots shown in Hire. Random pool draws ten entries
 from its own list of eligible choices. Each mode saves its own list.
 
@@ -1307,6 +1309,11 @@ check that unrelated art and unchanged compressed blocks survive rebuilding.
 
 
 ### Integrated mods → Menu controls
+
+**Expanded Battle Limit** increases the combined battle roster from 30 to 62 on
+Steam 1.0.8.0. The Final Showdown and The Walking Dead still have individual
+toggles under **Hard Mode → Overworld encounters**. Enabling either encounter
+turns on the larger limit. Turning off the larger limit disables both encounters.
 
 Chariot from the start, five-speed fast-forward, early Auto Battle, story level-cap
 removal and chapter-video skipping are independent switches. All default to normal

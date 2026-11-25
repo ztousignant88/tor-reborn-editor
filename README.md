@@ -60,7 +60,7 @@ When you add a unit in **Battles**, Save checks that the stage will load enough 
 
 ## Shop Hiring
 
-Open a project and choose **Stats & Values → Others → Shop hiring**. Choose **Fixed roster** to fill the shop's ten Hire slots, or **Random pool** to draw ten offers from a list you build. The random pool can include custom choices, recruitable large monsters, or both. You can reroll after a battle, when reopening Hire, or at both points.
+Open a project and choose **Integrated Mods → Menu controls → Shop hiring** or **Stats & Values → Others → Shop hiring → Hiring roster**. Both views edit the same project settings. Choose **Fixed roster** to fill the shop's ten Hire slots, **Random pool** to draw ten offers, or **Game default** to turn off custom hiring. The random pool can include custom choices, recruitable large monsters, or both. You can reroll after a battle, when reopening Hire, or at both points.
 
 The **Character or pool** picker accepts generic and special character sheets. A special character's sheet supplies its identity and appearance. Save and apply the project, then restart the game to see the new offers.
 
@@ -72,9 +72,9 @@ Hard Mode's random enemy skills and spells can fill vacant slots in both rows. S
 
 ## Large battles and overworld encounters
 
-Open a project and go to **Integrated Mods → Hard Mode → Large battles**. **Expanded Battle Limit** raises the total from 30 to 62. The Battles editor uses that limit for roster edits and counts player deployment slots, allies including guests, and enemies together. Save and apply the project to use those slots in game. The mod works with Steam 1.0.8.0. Battles using the extra slots support Chariot and disable Battle Suspend.
+Open a project and go to **Integrated Mods → Menu controls → Large battles**. **Expanded Battle Limit** raises the total from 30 to 62. The Battles editor uses that limit for roster edits and counts player deployment slots, allies including guests, and enemies together. Save and apply the project to use those slots in game. The mod works with Steam 1.0.8.0. Battles using the extra slots support Chariot and disable Battle Suspend.
 
-Under **Overworld encounters**, enable **The Final Showdown**, **The Walking Dead**, or both. Each fight enables the larger limit and allows 12 players against 50 enemies. The two roads branch from Tynemouth Hill, and both fights can be replayed after Tynemouth Hill is unlocked. Save the project, apply it, and restart the game. To remove either encounter, clear its toggle, save, and apply again.
+Under **Integrated Mods → Hard Mode → Overworld encounters**, enable **The Final Showdown**, **The Walking Dead**, or both. Each fight enables the larger limit and allows 12 players against 50 enemies. The two roads branch from Tynemouth Hill, and both fights can be replayed after Tynemouth Hill is unlocked. Save the project, apply it, and restart the game. To remove either encounter, clear its toggle, save, and apply again.
 
 ## World Map
 

@@ -45,8 +45,9 @@ export class ShopHiringEditor{
   const q=filter.trim().toLowerCase(),entry=(id,name,sub,lookId)=>{if(q&&!`${name} ${sub} ${id}`.toLowerCase().includes(q.replace('#','')))return;const b=document.createElement('button');b.className=`data-item others-entry${id===selected?' active':''}`;b.dataset.index=String(2000+id);b.innerHTML=`<span class="thumb"></span><span class="data-name">${esc(name)}${sub?`<br><small class="muted">${esc(sub)}</small>`:''}</span>`;b.onclick=()=>onSelect(id);list.append(b);if(lookId)this.ed.picture('template',lookId,false).then(c=>{if(c&&b.isConnected)b.querySelector('.thumb').append(c);}).catch(()=>{});};
   entry(0,'Hiring roster','Fixed slots and random pool');for(const id of HIRING_TEMPLATES)entry(id,this.templateLabel(id),`Shared character sheet #${id}`,id);
  }
- renderRoster(detail,onChange){
-  const ed=this.ed, tables=ed.ctx.tables(), mods=ed.menuMods;
+ renderRoster(detail,onChange,{embedded=false}={}){
+  const ed=this.ed, mods=ed.menuMods;
+  const panel=detail.closest('#data-detail')??detail;
   const stock=mods.stockShopHiringRoster;
   const plan=mods.shopHiringPlan;
   const editable=!!(mods.info.project && plan && stock.length && !ed.ctx.readOnly?.());
@@ -60,7 +61,8 @@ export class ShopHiringEditor{
    eligible<10?`${eligible} eligible choices. Add ${10-eligible} more or include large monsters.`:
    `Draws ten offers from ${eligible} eligible choices.`;
   const modeOptions=[['stock','Game default'],['fixed','Fixed roster'],['random','Random pool']];
-  detail.innerHTML=`<div class="data-head"><div><h1>Shop hiring</h1><p class="muted">Ten offers at a time · Level 1 · 2,000 Goth</p></div></div>
+  const heading=embedded?'<h2>Shop hiring</h2>':'<h1>Shop hiring</h1>';
+  detail.innerHTML=`<div class="${embedded?'':'data-head'}"><div>${heading}<p class="muted">Ten offers at a time · Level 1 · 2,000 Goth</p></div></div>
    <div class="hiring-detail">
     <fieldset class="hiring-modes"><legend>Lineup</legend>
      ${modeOptions.map(([id,label])=>`<label><input type="radio" name="hire-mode" value="${id}" ${mode===id?'checked':''} ${editable?'':'disabled'}> ${label}</label>`).join('')}
@@ -87,23 +89,21 @@ export class ShopHiringEditor{
      <table class="hiring-table"><thead><tr><th scope="col">${random?'Choice':'Slot'}</th><th scope="col">Class</th><th scope="col">Character or pool</th><th scope="col">Name bank</th><th scope="col">Identity</th>${random?'<th scope="col"></th>':''}</tr></thead>
       <tbody data-hire-rows></tbody></table>`:''}
    </div>`;
-  const changed=()=>{onChange?.();};
-  const refresh=()=>{
+  const changed=()=>{
    mods.value.customShopHiring=plan.mode==='fixed'||(plan.mode==='random'&&plan.includeCustom);
    mods.value.shopHiringLargeMonsters=plan.mode==='random'&&plan.includeMonsters;
-   changed();
-   this.renderRoster(detail,onChange);
+   onChange();
   };
   for(const input of detail.querySelectorAll('[name="hire-mode"]'))input.onchange=()=>{
    plan.mode=input.value;
-   refresh();
-   detail.querySelector('[name="hire-mode"]:checked')?.focus();
+   changed();
+   panel.querySelector('[name="hire-mode"]:checked')?.focus({preventScroll:true});
   };
   for(const input of detail.querySelectorAll('[data-hire-option]'))input.onchange=()=>{
    const key=input.dataset.hireOption;
    plan[key]=input.checked;
-   refresh();
-   detail.querySelector(`[data-hire-option="${key}"]`)?.focus();
+   changed();
+   panel.querySelector(`[data-hire-option="${key}"]`)?.focus({preventScroll:true});
   };
   if(!custom)return;
   detail.querySelector('[data-hire-reset]').onclick=()=>{
@@ -111,14 +111,13 @@ export class ShopHiringEditor{
    if(random)plan.pool=restored.map((row,index)=>({...row,bank:index<5?1:2}));
    else mods.shopHiringRoster=restored;
    changed();
-   this.renderRoster(detail,onChange);
   };
   if(random)detail.querySelector('[data-hire-add]').onclick=()=>{
    roster.push({...structuredClone(stock[0]),bank:1});
    changed();
-   this.renderRoster(detail,onChange);
-   detail.querySelector('[data-hire-rows] tr:last-child .picker')?.focus();
+   panel.querySelector('[data-hire-rows] tr:last-child .picker')?.focus();
   };
+  const tables=ed.ctx.tables();
   const templateTable=tables.tables.unitTemplate;
   const sheets=tables.lists.template.filter(({id})=>id>0 && id<=65535 && view(templateTable.row(id)).getUint16(0x18,true));
   const sheetIds=new Set(sheets.map(({id})=>id));
@@ -242,7 +241,7 @@ export class ShopHiringEditor{
     remove.textContent='Remove';
     remove.disabled=!editable;
     remove.setAttribute('aria-label',`Remove pool choice ${index+1}`);
-    remove.onclick=()=>{roster.splice(index,1);changed();this.renderRoster(detail,onChange);};
+    remove.onclick=()=>{roster.splice(index,1);changed();};
     actionCell.append(remove);
    }else{
     bankCell.textContent=index<5?'Male':'Female';
