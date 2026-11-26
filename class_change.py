@@ -188,7 +188,13 @@ def mark_drops(data,marks,recruitment=()):
 
 def variant_data(mode):
     payload={n:(ROOT/mode/n).read_bytes() for n in SIDECARS}
-    if {n:sha(b) for n,b in payload.items()}!=recipe()['variants'][mode]:
+    expected=recipe()['variants'][mode]
+    metadata='modprep-classgroups-project.json'
+    # Git's Windows checkout can convert this JSON file to CRLF. Accept
+    # that conversion only when the LF bytes match the original checksum.
+    if sha(payload[metadata])!=expected.get(metadata):
+        payload[metadata]=payload[metadata].replace(b'\r\n',b'\n')
+    if {n:sha(b) for n,b in payload.items()}!=expected:
         raise ValueError('The bundled class group data changed')
     return payload
 
