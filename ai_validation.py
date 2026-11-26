@@ -5,9 +5,13 @@ already used by web/js/lib/crypt.js. No optional research tools are required.
 """
 import hashlib
 from io import BytesIO
+import json
+from pathlib import Path
 import re
 import struct
 import zipfile
+
+from tools.menu_mods.compiler.tor_formats import DatArchive, Pakd, Xlce
 
 BATTLE = 'battle/battle_data_release.dat'
 UNIT_FILE = re.compile(r'battle/entry/entry_unit_[0-9]+\.dat', re.I)
@@ -97,3 +101,56 @@ def project(config, name, files, removed, generated=None):
         target = config.applied_base(path, applied) if path in removed else config.resolve(path)
         return target.read_bytes() if target is not None and target.is_file() else None
     return validate(read, paths)
+
+
+def replace_assignments(data, replacements, *, scene=False):
+    """Replace only roster AI bytes, including embedded copies in scenes."""
+    archive = DatArchive.read(data, None if scene else 'pack')
+    pack = Pakd(archive.pack)
+    indices = (0,)
+    if scene:
+        header = 12 + 4 * len(pack)
+        id_count = (pack.offsets[0] - header - 4) // 4 if len(pack) else 0
+        indices = [index for index in range(min(id_count, len(pack)))
+                   if 0xd000 <= struct.unpack_from('<I', pack.data, header + 4 * index)[0] < 0x10000]
+    edits = {}
+    for index in indices:
+        table = Xlce(pack.entry(index))
+        if table.row_size != 196:
+            raise ValueError('Unsupported AI assignment layout')
+        rows = {}
+        for slot in range(table.count):
+            row = table.row(slot)
+            if (any(row[:4]) or row[6]) and row[0x94] in replacements:
+                rows[slot] = row[:0x94] + bytes((replacements[row[0x94]],)) + row[0x95:]
+        if rows:
+            edits[index] = table.replace(rows)
+    return archive.rebuild(pack.replace(edits)) if edits else data
+
+
+def reassigned_files(config, read, paths, replacements):
+    paths = set(paths)
+    paths.update(config.rel(path) for path in config.resolve('battle/entry').glob('entry_unit_*.dat'))
+    edits = {}
+    for rel in sorted(path for path in paths if UNIT_FILE.fullmatch(path)):
+        try:
+            original = read(rel)
+        except FileNotFoundError:
+            continue
+        updated = replace_assignments(original, replacements)
+        if updated != original:
+            edits[rel] = updated
+    copies = json.loads((Path(__file__).resolve().parent / 'web/data/unit_copies.json').read_bytes())['files']
+    scenes = {path for path in paths if path.casefold().startswith('event/scene/') and path.lower().endswith('.dat')}
+    for rel in edits:
+        number = str(int(Path(rel).stem.rsplit('_', 1)[1]))
+        scenes.update(f'event/scene/{name}' for name in copies.get(number, ()) if config.resolve(f'event/scene/{name}').is_file())
+    for rel in sorted(scenes):
+        try:
+            original = read(rel)
+        except FileNotFoundError:
+            continue
+        updated = replace_assignments(original, replacements, scene=True)
+        if updated != original:
+            edits[rel] = updated
+    return edits

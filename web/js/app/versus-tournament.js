@@ -1,4 +1,4 @@
-import {arenaChoice, drawTeamTheme, randomArena, randomTeamControl, readSave, request, saveLabel,
+import {arenaChoice, drawTeamTheme, randomArena, randomLoadoutNote, randomTeamControl, readSave, request, saveLabel,
   requestExpandedBattles, versusAiOptions, versusFighterOptions, versusPicker} from './versus.js';
 import {battleData} from '../game/battledata.js';
 import {GameTables} from '../game/tables.js';
@@ -29,6 +29,7 @@ export function installTournament(refresh) {
   const teamCount = $('team-count');
   const source = $('source'), split = $('split'), save = $('save'), draft = $('draft-status');
   const randomTeams = $('random-teams');
+  const randomLoadout = $('random-loadout');
   const aiPanel = $('ai'), aiTeam = $('ai-team'), aiLineup = $('ai-lineup'), aiSave = $('ai-save'), aiInfo = $('ai-status');
   const resultPanel = $('result'), resultWinner = $('result-winner'), resultSave = $('result-save');
   let resultMatch;
@@ -97,6 +98,7 @@ export function installTournament(refresh) {
       ...state.tournaments.map(t => [t.id, t.title])], selected?.id ?? '');
     const editable = state.projectEnabled && !state.readOnly;
     setup.hidden = !editable;
+    randomLoadout.textContent = `${randomLoadoutNote(state)} Saved brackets keep their original loadouts.`;
     aiPanel.hidden = !bracket || !editable;
     if (aiBracket !== bracket?.id) {
       aiBracket = bracket?.id;

@@ -10,7 +10,7 @@ from tools.menu_mods.compiler.tor_formats import DatArchive, Pakd, Xlce
 
 
 SETTINGS = ('rougesReborn', 'throwReborn', 'proficiencyII', 'specialClassChange',
-            'aiChoices', 'dorgaluaXLFix', *battle_encounters.FIGHTS)
+            'aiChoices', 'aiPlusProfiles', 'dorgaluaXLFix', *battle_encounters.FIGHTS)
 KEY = 'integratedContentEdits'
 
 

@@ -1,7 +1,7 @@
 import {renderEquipmentSetBonuses} from './equipmentsetbonuses.js';
 import{canRemoveStatusBehaviours}from'../game/aieditor.js';
 import { parseXlce } from '../lib/pakd.js';
-import { AI_ENTRY, BEHAVIOURS, STOCK_AI_ROWS, W, addedBehaviours, behaviourRow } from '../game/aiprofiles.js';
+import { AI_ENTRY, AI_PLUS_REMOVAL_DEFAULTS, BEHAVIOURS, STOCK_AI_ROWS, W, addedBehaviours, aiLabels, behaviourRow } from '../game/aiprofiles.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -53,6 +53,10 @@ export class IntegratedMods {
     const ids = BEHAVIOURS.map((_, k) => STOCK_AI_ROWS + k);
     const profilesPresent = () => this.aiTable().count >= STOCK_AI_ROWS + BEHAVIOURS.length;
     const scoringEnabled = () => !!(mods?.value.aiStatus || mods?.value.aiStatusAll);
+    const canRemove = () => {
+      const table = this.aiTable();
+      return table.count === STOCK_AI_ROWS || canRemoveStatusBehaviours(table, addedBehaviours(table));
+    };
     const addProfiles = () => {
       const table = this.aiTable();
       if (profilesPresent()) return;
@@ -66,23 +70,60 @@ export class IntegratedMods {
       summary: `AI ${ids[0]} prioritizes buffs and AI ${ids[1]} prioritizes ailments. Assign the profiles under Battles → AI behaviour, or enable the Buff and Debuff choices below for player Auto Battle.`,
       untested: 'The native game scores status effects as zero during AI look-ahead. AI Plus corrects that scoring for the selected profiles.',
       applyLabel: () => profilesPresent() ? 'Enable AI status scoring' : 'Add AI Plus profiles',
-      ready: () => profilesPresent() ? 'Profiles 113 and 114 are present. Use Save to keep your changes, then Files → Apply project to install them.' : '',
+      ready: () => mods?.value.aiPlusProfiles === 'remove'
+        ? 'Save and apply to remove Support and Ailments. Apply Project checks for any remaining assignments.'
+        : profilesPresent() ? 'Profiles 113 and 114 are present. Save and apply the project to install them.' : '',
       controls: (detail,onChange) => {
         mods?.renderOptions(detail,onChange,ed,'ai');
         this.renderTrapAI(detail,onChange);
       },
-      applied: () => profilesPresent() && (scoringEnabled() || !mods?.supported),
-      changed: () => this.aiTable().count !== STOCK_AI_ROWS || !!ed.menuMods?.dirtyIn('ai'),
-      undoChanged: () => !mods?.value.aiChoices && canRemoveStatusBehaviours(this.aiTable(), addedBehaviours(this.aiTable())),
+      applied: () => !!mods?.enabledIn('ai'),
+      changed: () => this.aiTable().count !== ed.originalEntries[AI_ENTRY].count || !!mods?.dirtyIn('ai'),
+      applyDisabled: () => profilesPresent() && scoringEnabled(),
+      undoLabel: 'Remove AI Plus',
+      undoChanged: () => !!mods?.info.project && canRemove() &&
+        (mods.enabledIn('ai') || this.aiTable().count > STOCK_AI_ROWS || mods.value.aiPlusProfiles === 'remove'),
+      undoHint: () => !canRemove() ? 'AI Plus rows can be removed when they have their original weights and no later profile uses a higher ID. Use the runtime switches to disable scoring while keeping custom profiles.' : '',
       apply: () => {
-        addProfiles();
+        if (mods?.info.project && mods.value.aiPlusProfiles === 'remove') mods.restoreAIPlusProfiles();
+        else addProfiles();
         if (mods?.supported && !scoringEnabled()) mods.value.aiStatus = true;
       },
-      undo: () => {
-        const t=this.aiTable();if(!canRemoveStatusBehaviours(t,addedBehaviours(t)))throw new Error('AI profiles have been customized or added. Automatic removal is unavailable so those profiles and their battle assignments are preserved.');
-        while (this.aiTable().count > STOCK_AI_ROWS) ed.dropEntryRow(AI_ENTRY);
-      },
+      undo: () => this.removeAIPlus(mods),
     };
+  }
+
+  async removeAIPlus(mods) {
+    const dialog = document.createElement('dialog');
+    dialog.className = 'project-dialog';
+    dialog.innerHTML = `<form method="dialog">
+      <h2>Remove AI Plus</h2>
+      <p>Choose what to do with battle units and saved Versus fighters assigned to Support or Ailments.</p>
+      <label><input type="checkbox" name="reassign" checked> Use replacement AI profiles</label>
+      <fieldset>
+        <label class="field">Support (Buff) <select name="support" aria-label="Replacement for Support"></select></label>
+        <label class="field">Ailments (Debuff) <select name="ailments" aria-label="Replacement for Ailments"></select></label>
+      </fieldset>
+      <p class="hint">Affected battles use the replacements after you apply the project. Saved Versus teams use them when you queue a fight.</p>
+      <div class="pd-actions"><button value="cancel" class="ghost">Cancel</button><button value="remove" class="primary">Remove AI Plus</button></div>
+    </form>`;
+    const table = this.aiTable();
+    const labels = aiLabels(table).filter(({id}) => id > 0 && id < STOCK_AI_ROWS && table.row(id).some(Boolean));
+    const defaults = mods.value.aiPlusReplacements ?? AI_PLUS_REMOVAL_DEFAULTS;
+    const selects = [...dialog.querySelectorAll('select')];
+    for (const [index, select] of selects.entries()) {
+      select.replaceChildren(...labels.map(({id, name}) => new Option(`#${id} · ${name}`, id)));
+      select.value = String(defaults[index]);
+    }
+    const reassign = dialog.querySelector('input');
+    reassign.onchange = () => { dialog.querySelector('fieldset').disabled = !reassign.checked; };
+    document.body.append(dialog);
+    dialog.showModal();
+    await new Promise(resolve => dialog.addEventListener('close', resolve, { once: true }));
+    const confirmed = dialog.returnValue === 'remove';
+    if (confirmed) mods.removeAIPlus(reassign.checked ? selects.map(select => Number(select.value)) : []);
+    dialog.remove();
+    return confirmed;
   }
 
   renderTrapAI(detail,onChange) {
@@ -171,6 +212,7 @@ export class IntegratedMods {
     const m = this.mods[i];
     if(m.render){m.render(detail,onChange);return;}
     const on = m.applied();
+    const canApply = !(m.applyDisabled?.() ?? on) && !this.ed.ctx.readOnly?.();
     detail.innerHTML = `
       <div class="data-head">
         <div>
@@ -179,9 +221,10 @@ export class IntegratedMods {
           <p class="mod-summary">${esc(m.summary)}</p>
           <p class="hint warn">${esc(m.untested ?? 'Not tested in game yet: check a few special characters in different classes (sprite, skills, equipment) before relying on it.')}</p>
           <div class="data-actions">
-            ${on && m.ready ? '' : `<button id="mod-apply" ${on || this.ed.ctx.readOnly?.() ? 'disabled' : ''}>${esc(m.applyLabel?.() ?? 'Apply')}</button>`}
-            <button id="mod-undo" class="ghost" ${(m.undoChanged?.() ?? m.changed()) ? '' : 'disabled'}>Undo (back to the game's own data)</button>
+            ${canApply ? `<button id="mod-apply">${esc(m.applyLabel?.() ?? 'Apply')}</button>` : ''}
+            <button id="mod-undo" class="ghost" ${!this.ed.ctx.readOnly?.() && (m.undoChanged?.() ?? m.changed()) ? '' : 'disabled'}>${esc(m.undoLabel ?? 'Undo')}</button>
           </div>
+          ${m.undoHint?.() ? `<p class="hint">${esc(m.undoHint())}</p>` : ''}
           ${m.ready?.() ? `<p class="hint">${esc(m.ready())}</p>` : ''}
         </div>
       </div>`;
@@ -205,6 +248,6 @@ export class IntegratedMods {
       }
       onChange();
     };
-    detail.querySelector('#mod-undo').onclick = () => { if (guard()) { m.undo(); onChange(); } };
+    detail.querySelector('#mod-undo').onclick = async () => { if (guard() && await m.undo()) onChange(); };
   }
 }

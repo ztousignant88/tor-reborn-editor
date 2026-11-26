@@ -89,6 +89,10 @@ def describe(tournament, state):
 
 def status(config):
     state = queue.queue_state(config, full_history=True)
+    name = config.open_project()
+    meta = config.project(name) if name else {}
+    options = versus.random_loadout_options(config.state().get("menuRuntime") or {}, name,
+                                            menu_runtime.project_settings(meta))
     tournaments = []
     for path in sorted(library(config).glob("*.json")):
         if queue.MATCH_ID.fullmatch(path.stem) and not path.is_symlink():
@@ -98,7 +102,7 @@ def status(config):
             "maxTeamSize": state["maxTeamSize"],
             "projectEnabled": versus.project_enabled(config),
             "launch": state["launch"], "autoLaunchSupported": state["autoLaunchSupported"],
-            "autoError": getattr(config, "tournament_auto_error", None)}
+            "autoError": getattr(config, "tournament_auto_error", None), **options}
 
 
 def title(value, maximum, label):

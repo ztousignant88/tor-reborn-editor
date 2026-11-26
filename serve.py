@@ -883,7 +883,7 @@ class Handler(SimpleHTTPRequestHandler):
             return "raw:" + _sha1(data)
         if options is None:
             options = menu_runtime.selected(self.config)
-        generation = json.dumps({key: options[key] for key in integrated_content.SETTINGS}, sort_keys=True).encode()
+        generation = json.dumps({key: options.get(key, False) for key in integrated_content.SETTINGS}, sort_keys=True).encode()
         return _sha1(generation) + ":" + _sha1(data)
 
     def _save_conflict(self, rel, current, revision, recorded, expected, original_size):
@@ -1098,7 +1098,7 @@ class Handler(SimpleHTTPRequestHandler):
         error = None
         try:
             value = menu_runtime.project_settings(meta)
-            if (any(value[k] for k in integrated_content.SETTINGS) or world_map.active(meta)
+            if (any(value.get(k) for k in integrated_content.SETTINGS) or world_map.active(meta)
                     or meta.get("editor", {}).get(map_backdrops.KEY)):
                 stored = _content_cache_load(self, name, key)
                 if stored:
@@ -1324,6 +1324,20 @@ class Handler(SimpleHTTPRequestHandler):
             return read
         progress(8, "Preparing project data and AI settings")
         ai_files = ai_choices_data.project(read) if value["aiChoices"] else {}
+        profile_mode = value.get("aiPlusProfiles")
+        if profile_mode and not value["aiChoices"]:
+            source_battle = read(ai_choices_data.BATTLE)
+            if profile_mode == "remove":
+                overrides = meta.get("editor", {}).get(integrated_content.KEY, {})
+                edited = overrides.get(ai_choices_data.BATTLE, {}).get(str(ai_choices_data.AI_PROFILES), {})
+                if any(str(ident) in edited for ident in range(ai_choices_data.STOCK_AI_ROWS,
+                                                              ai_choices_data.STOCK_AI_ROWS + len(ai_choices_data.PROFILES))):
+                    raise ValueError("Support or Ailments has custom weights. Keep that profile and disable AI Plus using its individual switches.")
+                profiles = ai_choices_data.without_profiles(source_battle)
+            else:
+                profiles = ai_choices_data.with_profiles(source_battle)
+            if profiles != source_battle:
+                ai_files[ai_choices_data.BATTLE] = profiles
         generated = dict(ai_files)
         class_files = {}
         weapon_files = {}
@@ -1418,6 +1432,16 @@ class Handler(SimpleHTTPRequestHandler):
                     extra_text[rel] = generated[rel] = read(rel)
         if not editor_view:
             generated = self._integrated_edits(meta, generated, read)
+            if profile_mode == "remove":
+                replacements = ai_choices_data.removal_assignments(value)
+                defaults = dict(enumerate(ai_choices_data.REMOVAL_DEFAULTS, ai_choices_data.STOCK_AI_ROWS))
+                pending = ai_validation.reassigned_files(self.config, effective, set(files) | set(generated),
+                                                         replacements or defaults)
+                if pending and not replacements:
+                    sample = ', '.join(sorted(pending)[:3])
+                    raise ValueError(f"Support or Ailments is used in {len(pending)} battle or scene files, including {sample}. Choose replacements under AI Plus → Remove AI Plus, or update those assignments first.")
+                generated.update(pending)
+                ai_files.update(pending)
             for rel, original in extra_text.items():
                 if generated[rel] == original:
                     del generated[rel]
@@ -1672,6 +1696,15 @@ class Handler(SimpleHTTPRequestHandler):
                     next_state["applied"]["permissionSetFiles"] = sorted(set_files)
                 if ai_files:
                     next_state["applied"]["aiChoiceFiles"] = sorted(ai_files)
+                if ai_choices_data.removal_assignments(value):
+                    assigned = {rel.casefold() for rel in ai_files if ai_validation.UNIT_FILE.fullmatch(rel)
+                                or rel.casefold().startswith("event/scene/")}
+                    prior = before.get("aiAssignmentSizes", {}) if before.get("name") == name else {}
+                    if assigned:
+                        next_state["applied"]["aiAssignmentSizes"] = {
+                            rel: prior.get(rel, row["size"])
+                            for row in versus.filetable_records(old_table) if (rel := row["path"].casefold()) in assigned
+                        }
                 if value[loadout_controls.KEY]:
                     next_state["applied"]["expandedLoadoutFiles"] = list(loadout_controls.PATHS)
                 encounter_paths = world_map.owned_paths(value, meta.get('editor', {}))

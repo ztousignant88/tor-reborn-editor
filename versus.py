@@ -19,7 +19,7 @@ import save_editor
 import versus_generic_teams
 import versus_loadouts
 from tools.menu_mods.compiler.class_text import read_archive
-from tools.menu_mods.compiler.loadout_controls import write_entry_spells
+from tools.menu_mods.compiler.loadout_controls import KEY as LOADOUT_KEY, write_entry_spells
 from tools.menu_mods.compiler.tor_formats import Xlce, filetable_records, u16, u32
 
 
@@ -100,7 +100,14 @@ def project_options(config):
             "runtime": bool(name and runtime.get("project") == name and runtime.get("versusQueue")),
             "appliedExpanded": bool(runtime.get("settings", {}).get(battle_encounters.KEY)),
             "maxTeamSize": runtime.get("versusMaxTeamSize", 24),
-            "smallTeams": bool(runtime.get("versusSmallTeams")), "readOnly": config.read_only}
+            "smallTeams": bool(runtime.get("versusSmallTeams")), "readOnly": config.read_only,
+            **random_loadout_options(runtime, name, settings)}
+
+
+def random_loadout_options(runtime, name, settings):
+    expanded = bool(runtime.get("settings", {}).get(LOADOUT_KEY))
+    return {"randomLoadoutSlots": 8 if expanded else 4,
+            "randomLoadoutPending": bool(settings[LOADOUT_KEY] and (not expanded or runtime.get("project") != name))}
 
 
 def configure(config, body):
@@ -127,7 +134,7 @@ def configure(config, body):
     return project_options(config)
 
 
-def require_project(config, count=None):
+def require_project(config, count=None, *, random_loadouts=False):
     import menu_runtime
 
     name = config.open_project()
@@ -138,6 +145,10 @@ def require_project(config, count=None):
         raise ValueError("Enable Versus in Integrated Mods and save the project.")
     if count is not None and count > 12 and not settings[battle_encounters.KEY]:
         raise ValueError(f"Enable Expanded Battle Limit for {count} vs {count}.")
+    if random_loadouts:
+        runtime = config.state().get("menuRuntime") or {}
+        if random_loadout_options(runtime, name, settings)["randomLoadoutPending"]:
+            raise ValueError("Apply Expand Skill & Spell Slots before generating random Versus loadouts.")
 
 
 def cstring(data):
@@ -207,13 +218,18 @@ def battle_without_ai(data):
     return digest.hexdigest()
 
 
-def art_without_ai(data):
+def art_without_ai(data, original_assignment_sizes=None):
     # AI Plus writes these UI assets as well as the AI profile table.
     ignored = {"menu/menu_data.dat", battle_encounters.BATTLE}
     for language in battle_encounters.MAP_NAME_LANGUAGES:
         ignored.update((f"localize/localizetext_{language.lower()}.dat",
                         f"menu/texture_x4/{language.lower()}/com_icon.dat"))
     records = [r for r in filetable_records(data) if r["path"].casefold() not in ignored]
+    if original_assignment_sizes:
+        for record in records:
+            size = original_assignment_sizes.get(record["path"].casefold())
+            if size is not None:
+                record["size"] = size
     return save_editor.sha(json.dumps(records, sort_keys=True).encode())
 
 
@@ -476,6 +492,8 @@ def random_formations(game, count, *, single=False):
 
 
 def prepare_teams(config, selections, count, omit_snapshots):
+    if any(isinstance(selection, dict) and "theme" in selection for selection in selections):
+        require_project(config, random_loadouts=True)
     game = GameData(config)
     profiles = {p["id"] for p in game.profiles()}
     prepared = []
@@ -728,8 +746,9 @@ def post(handler, route, atomic_replace):
                 return handler._json(versus_queue.clear(config, atomic_replace))
             return handler._json({"queued": versus_queue.select(config, body.get("id"), atomic_replace)})
     if route == API + "squad":
-        require_project(config)
-        if isinstance(body, dict) and "theme" in body:
+        generated = isinstance(body, dict) and "theme" in body
+        require_project(config, random_loadouts=generated)
+        if generated:
             digest, title, seed, units = versus_generic_teams.build(GameData(config), body)
             return handler._json({"sha256": digest, "title": title, "seed": seed,
                                   "units": [{k: v for k, v in unit.items() if k not in ("entry", "preload", "relics")}

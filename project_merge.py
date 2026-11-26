@@ -346,12 +346,17 @@ def merge_editor(choose, runtime, left_meta, right_meta, left, right, linked):
     settings.update(choose(('Integrated mods','Enemy weapon proficiency'),*ranks,
                            show=lambda value: 'Match enemy level (max 40)' if value['enemyProficiencyLevel']
                            else 'Always rank 40' if value['enemyProficiency40'] else 'Game default'))
+    ai_keys=()
+    if any('aiPlusProfiles' in source for source in (a,b)):
+        ai_keys=('aiPlusProfiles','aiPlusReplacements','aiChoices','aiStatus','aiStatusAll')
+        choices=[{key:source[key] for key in ai_keys if key in source} for source in (defaults,a,b)]
+        settings.update(choose(('Integrated mods','AI Plus profiles and status scoring'),*choices))
     labels={**runtime.LABELS,'formationLimit':'Formation limit','trapAiProfile':'Trap AI profile',
             'enemyStartingCards':'Enemy starting cards','playerStartingCards':'Player starting cards',
             'enemyStartingStatus':'Enemy starting statuses','playerStartingStatus':'Player starting statuses',
             'startingStatusAllowCure':'Allow cures for persistent starting statuses'}
     for key,base in defaults.items():
-        if key in (*level_keys,*rank_keys):
+        if key in (*level_keys,*rank_keys,*ai_keys):
             continue
         if linked and key in LINKED_SETTINGS:
             settings[key]=(a if linked=='current' else b)[key]

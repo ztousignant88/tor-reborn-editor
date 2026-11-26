@@ -1,6 +1,7 @@
 """Project settings and owned, reversible deployment of the bundled menu runtime."""
 from pathlib import Path
 import hashlib,json,os,subprocess,datetime,uuid
+import ai_choices_data
 import class_change
 import dorgalua_xl
 import weapon_mods
@@ -75,7 +76,16 @@ def settings(value=None):
   # Retired settings in older projects and installed runtime receipts.
   value.pop('rogueTarotCost',None)
   value.pop('revealEnemyNames',None)
- if not isinstance(value,dict)or set(value)!={'version',*FIELDS,*CARD_SETTINGS,*statuses.defaults(),'formationLimit','trapAiProfile','enemyLevelOffset','enemyItemPool','enemyEquipmentOverrides'}or type(value['version'])is not int or value['version']!=1 or any(type(value[k])is not bool for k in FIELDS):raise ValueError('Invalid menu mod settings')
+ if not isinstance(value,dict)or set(value)-{'aiPlusProfiles','aiPlusReplacements'}!={'version',*FIELDS,*CARD_SETTINGS,*statuses.defaults(),'formationLimit','trapAiProfile','enemyLevelOffset','enemyItemPool','enemyEquipmentOverrides'}or type(value['version'])is not int or value['version']!=1 or any(type(value[k])is not bool for k in FIELDS):raise ValueError('Invalid menu mod settings')
+ profile_mode = value.get('aiPlusProfiles', '')
+ scoring = any(value[key] for key in ('aiStatus', 'aiStatusAll', 'aiChoices'))
+ if profile_mode not in ('', 'add', 'remove') or (profile_mode == 'remove' and scoring):
+  raise ValueError('Invalid AI Plus profile mode')
+ replacements = value.get('aiPlusReplacements', [])
+ if not isinstance(replacements, list) or (replacements and (
+     profile_mode != 'remove' or len(replacements) != len(ai_choices_data.PROFILES)
+     or any(type(i) is not int or not 1 <= i < ai_choices_data.STOCK_AI_ROWS for i in replacements))):
+  raise ValueError('Choose two stock AI profiles for AI Plus removal')
  if type(value['formationLimit'])is not int or not 0<=value['formationLimit']<=12:raise ValueError('Formation limit must be between 0 and 12')
  if type(value['trapAiProfile'])is not int or (value['trapAiProfile'] and not 115<=value['trapAiProfile']<=255):raise ValueError('Trap AI needs an added profile between 115 and 255')
  if type(value['enemyLevelOffset'])is not int or not 0<=value['enemyLevelOffset']<=49:raise ValueError('Extra enemy levels must be an integer between 0 and 49')
@@ -93,7 +103,12 @@ def settings(value=None):
  if any(value[k] for k in battle_encounters.FIGHTS):value[battle_encounters.KEY]=True
  for fight, option in battle_encounters.ONE_TIME_OPTIONS.items():
   if not value[fight]:value[option]=False
- return {'version':1,**{k:value[k]for k in FIELDS},**{k:list(value[k])for k in CARD_SETTINGS},'formationLimit':value['formationLimit'],'trapAiProfile':value['trapAiProfile'],'enemyLevelOffset':value['enemyLevelOffset'],'enemyEquipmentOverrides':equipment_overrides.settings(value['enemyEquipmentOverrides']),'enemyItemPool':value['enemyItemPool'],**statuses.settings(value)}
+ result={'version':1,**{k:value[k]for k in FIELDS},**{k:list(value[k])for k in CARD_SETTINGS},'formationLimit':value['formationLimit'],'trapAiProfile':value['trapAiProfile'],'enemyLevelOffset':value['enemyLevelOffset'],'enemyEquipmentOverrides':equipment_overrides.settings(value['enemyEquipmentOverrides']),'enemyItemPool':value['enemyItemPool'],**statuses.settings(value)}
+ if profile_mode:
+  result['aiPlusProfiles'] = profile_mode
+ if replacements:
+  result['aiPlusReplacements'] = list(replacements)
+ return result
 
 def cards_active(value):
  return any(any(value[key]) for key in CARD_SETTINGS)
@@ -450,6 +465,7 @@ def save(config,body,atomic):
  if value['pspSpellRuntime'] and not name:raise ValueError('Open a project to use the PSP spell status fixes')
  if not name and any(value[k] for k in ENEMY_LOADOUT_FIELDS):raise ValueError('Open a project to use the enemy loadout options')
  if value['aiChoices']and not name:raise ValueError('Open a project to add Buff / Debuff Auto Battle buttons')
+ if value.get('aiPlusProfiles') and not name:raise ValueError('Open a project to change the integrated AI Plus profiles')
  if value['aiChoices']and not(value['aiStatus']or value['aiStatusAll']):raise ValueError('Enable AI status scoring with the Buff / Debuff buttons')
  if value['levelCap99']and not name:raise ValueError('Open a project to raise the player level cap')
  if value['enemyLevelScaling']and not name:raise ValueError('Open a project to scale enemy levels')

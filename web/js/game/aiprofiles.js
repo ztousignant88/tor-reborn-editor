@@ -20,6 +20,7 @@
 export const AI_ENTRY = 27;
 export const AI_ROW = 98;
 export const STOCK_AI_ROWS = 113;
+export const AI_PLUS_REMOVAL_DEFAULTS = [10, 9];
 export const W = { friendlyDamage: 0x0A, damage: 0x02, damagePercent: 0x06, buffAllies: 0x12, ailmentsEnemies: 0x14, heal: 0x1A };
 
 export const BEHAVIOURS = [
@@ -77,6 +78,8 @@ export function aiLabels(table, trapProfile=0) {
     let name;
     if (id === 0) name = 'Player-controlled';
     else if (id === 7) name = 'Default (also used while Charmed)';
+    else if (id === 9) name = 'Distant Striker';
+    else if (id === 10) name = 'Ardent Mender';
     else if (id === 74) name = 'AI guest (warrior)';
     else if (id === 75) name = 'AI guest (priest)';
     else if (id === trapProfile) name = 'Trap AI';

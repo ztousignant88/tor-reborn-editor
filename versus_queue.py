@@ -10,6 +10,7 @@ from functools import lru_cache
 from uuid import uuid4
 
 import battle_encounters
+import ai_choices_data
 import save_editor
 import versus
 
@@ -189,20 +190,30 @@ def prepare_queue(config, record, packet):
         raise ValueError(f"Apply the updated Versus project and restart the game to play {size} vs {size}.")
     battle = config.resolve(battle_encounters.BATTLE).read_bytes()
     art = config.resolve("FileTable.bin").read_bytes()
+    prior_sizes = (config.state().get("applied") or {}).get("aiAssignmentSizes", {})
     for data, field, compatible, fingerprint in (
         (battle, "battleRevision", "battleWithoutAI", versus.battle_without_ai),
         (art, "artRevision", "artWithoutAI", versus.art_without_ai),
     ):
-        if save_editor.sha(data) != record[field] and (
-            not record.get(compatible) or record[compatible] != fingerprint(data)
-        ):
+        if save_editor.sha(data) == record[field]:
+            continue
+        saved_fingerprint = record.get(compatible)
+        if not saved_fingerprint or (saved_fingerprint != fingerprint(data) and (
+                field != "artRevision" or not prior_sizes or saved_fingerprint != versus.art_without_ai(data, prior_sizes))):
             raise ValueError("The installed game tables changed. Save this matchup again using the current game data.")
     _, pack = battle_encounters.archive(battle)
     profiles = versus.rows(pack, 27)
+    replacements = ai_choices_data.removal_assignments(runtime.get("settings") or {})
+    payload = bytearray(packet[PACKET.size:])
     for i in range(record["size"] * 2):
-        ai = packet[PACKET.size + i * 196 + 0x94]
+        offset = i * 196 + 0x94
+        ai = payload[offset]
+        if ai >= profiles.count and ai in replacements:
+            payload[offset] = ai = replacements[ai]
         if ai == 0 or ai >= profiles.count or not any(profiles.row(ai)):
-            raise ValueError(f"AI {ai} is unavailable in the applied project. Apply its profile before queuing this fight.")
+            raise ValueError(f"AI {ai} is unavailable in the applied project. Choose another profile for that fighter or apply a project that includes it.")
+    header = PACKET.unpack_from(packet)
+    packet = PACKET.pack(*header[:-1], binascii.crc32(payload)) + payload
     if runtime.get("versusNames"):
         packet = with_fighter_data(record, packet)
     return runtime_path(config, runtime), packet

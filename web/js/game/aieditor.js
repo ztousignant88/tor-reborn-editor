@@ -33,4 +33,4 @@ export function applyAIWeights(dat,id,changes){
 }
 export function applyStatusAIValue(dat,id,value){const{statuses}=aiEditorTables(dat);integer(id,1,statuses.count-1,'Status');integer(value,0,255,'Status AI value');const r=statuses.row(id),changed=r[0x70]!==value;r[0x70]=value;return changed;}
 export function duplicateAIProfile(ed,id){const{profiles}=aiEditorTables(ed.dat);integer(id,1,Math.min(AI_MAX_ID,profiles.count-1),'Source AI profile');if(profiles.count>AI_MAX_ID)throw new Error('All 256 AI numbers are occupied. Battle units store one byte for their AI number.');return ed.appendEntryRow(AI_ENTRY,profiles.row(id).slice());}
-export function canRemoveStatusBehaviours(table,matched){return table.count===115&&matched.size===2;}
+export function canRemoveStatusBehaviours(table,matched){return table.count>113&&table.count<=115&&matched.size===table.count-113;}

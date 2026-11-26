@@ -11,6 +11,9 @@ ARDENT_MENDER_COMMAND = 613
 BATTLE = 'battle/battle_data_release.dat'
 AI_PROFILES = 27
 STOCK_AI_ROWS = 113
+# Native Auto Battle menu assigns profiles 9 (Distant Striker) and 10 (Ardent Mender).
+# Order here follows the two added profiles, Support and Ailments.
+REMOVAL_DEFAULTS = (10, 9)
 # Match the two presets in web/js/game/aiprofiles.js.
 PROFILES = (
  (53, {0x0a: -2000, 0x12: 300}),
@@ -191,3 +194,37 @@ def project(read):
     if profiles != battle:
         out[BATTLE] = profiles
     return out
+
+
+def without_profiles(battle):
+    """Trim only the original AI Plus rows at the end of the table."""
+    archive = DatArchive.read(battle)
+    pack = Pakd(archive.pack)
+    table = Xlce(pack.entry(AI_PROFILES))
+    if table.count == STOCK_AI_ROWS:
+        return battle
+    if table.row_size != 98 or not STOCK_AI_ROWS < table.count <= STOCK_AI_ROWS + len(PROFILES):
+        raise ValueError('Other AI profiles follow the AI Plus slots. Keep their IDs and disable AI Plus using its individual switches.')
+    for ident in range(STOCK_AI_ROWS, table.count):
+        base, weights = PROFILES[ident - STOCK_AI_ROWS]
+        expected = bytearray(table.row(base))
+        for offset, weight in weights.items():
+            struct.pack_into('<h', expected, offset, weight)
+        actual = table.row(ident)
+        if actual == expected:
+            continue
+        expected[0x0a:0x0c] = table.row(base)[0x0a:0x0c]
+        if actual != expected:
+            raise ValueError(f'AI {ident} has custom weights. Keep that profile and disable AI Plus using its individual switches.')
+    end = table.header + table.count * table.row_size
+    if len(table.data) - end > 16 or any(table.data[end:]):
+        raise ValueError('The AI profile table has extra data after its rows')
+    output = bytearray(table.data[:table.header + STOCK_AI_ROWS * table.row_size])
+    struct.pack_into('<I', output, 4, STOCK_AI_ROWS)
+    output.extend(bytes(16 - len(output) % 16))
+    return archive.rebuild(rebuild_pakd(pack, {AI_PROFILES: bytes(output)}))
+
+
+def removal_assignments(settings):
+    ids = settings.get('aiPlusReplacements', ())
+    return dict(enumerate(ids, STOCK_AI_ROWS)) if settings.get('aiPlusProfiles') == 'remove' else {}

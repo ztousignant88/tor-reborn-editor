@@ -43,14 +43,15 @@ class DatArchive:
     comment: bytes
 
     @classmethod
-    def read(cls, data: bytes) -> "DatArchive":
+    def read(cls, data: bytes, member: str | None = "pack") -> "DatArchive":
         if len(data) < 16:
             raise FormatError("DAT is too short")
         try:
             with zipfile.ZipFile(BytesIO(_crypt.decrypt(data))) as archive:
-                if archive.namelist() != ["pack"]:
+                entries = archive.infolist()
+                if len(entries) != 1 or (member is not None and entries[0].filename != member) or entries[0].is_dir():
                     raise FormatError("Expected a ZIP with a single pack member")
-                info = archive.getinfo("pack")
+                info = entries[0]
                 return cls(data, info, archive.read(info), archive.comment)
         except (zipfile.BadZipFile, RuntimeError) as exc:
             raise FormatError(f"Invalid DAT ZIP: {exc}") from exc
@@ -63,7 +64,7 @@ class DatArchive:
             archive.comment = self.comment
             archive.writestr(self.zip_info, pack)
         encoded = bytes(_crypt.encrypt(output.getvalue()))
-        if DatArchive.read(encoded).pack != pack:
+        if DatArchive.read(encoded, self.zip_info.filename).pack != pack:
             raise FormatError("DAT verification failed")
         return encoded
 

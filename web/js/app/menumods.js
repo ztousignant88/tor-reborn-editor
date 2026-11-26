@@ -113,7 +113,7 @@ export class MenuMods{
  get dirty(){return JSON.stringify(this.value)!==this.original||this.groupsDirty||this.builtinGroupsDirty||this.setsDirty||this.spellSetsDirty||this.skillSetsDirty||this.equipmentPermissionsDirty||this.shopHiringDirty;}
  get contentChanged(){
   const saved=JSON.parse(this.original);
-  return ['rougesReborn','throwReborn','proficiencyII','specialClassChange','advancedBeastFamilies','genericSpecialRecruitment','aiChoices','pspSpellRuntime','dorgaluaXLFix',...expandedBattleOptions.map(([key])=>key)]
+  return this.value.aiPlusProfiles!==saved.aiPlusProfiles || ['rougesReborn','throwReborn','proficiencyII','specialClassChange','advancedBeastFamilies','genericSpecialRecruitment','aiChoices','pspSpellRuntime','dorgaluaXLFix',...expandedBattleOptions.map(([key])=>key)]
    .some(key=>!!this.value[key]!==!!saved[key]);
  }
  get enabled(){return !!this.value.formationLimit||options.some(([k])=>this.value[k]);}
@@ -130,8 +130,18 @@ export class MenuMods{
  dirtyIn(scope){
   const saved=JSON.parse(this.original);
   if(scope==='versus')return this.value.versusEnabled!==saved.versusEnabled;
+  if(scope==='ai'&&(this.value.aiPlusProfiles!==saved.aiPlusProfiles||JSON.stringify(this.value.aiPlusReplacements??[])!==JSON.stringify(saved.aiPlusReplacements??[])))return true;
   if(scope==='menu'&&(this.value.expandedBattleLimit!==saved.expandedBattleLimit||this.shopHiringDirty))return true;
   return scopedOptions(scope).some(([key])=>!!this.value[key]!==!!saved[key]);
+ }
+ removeAIPlus(replacements){
+  for(const key of aiKeys)this.value[key]=false;
+  this.value.aiPlusProfiles='remove';
+  this.value.aiPlusReplacements=replacements;
+ }
+ restoreAIPlusProfiles(){
+  this.value.aiPlusProfiles='add';
+  delete this.value.aiPlusReplacements;
  }
  statusEnabled(hardMode){return startingStatusesEnabled(this.value,hardMode);}
  statusChanged(hardMode){return startingStatusesChanged(this.value,JSON.parse(this.original),hardMode);}
@@ -578,7 +588,14 @@ export class MenuMods{
   };
   const choices=scopedOptions(scope);
   detail.innerHTML=`${!this.supported?'<p class="hint warn">Restart the editor server to enable runtime options.</p>':''}${this.saved?.error?`<p class="hint warn">${esc(this.saved.error)}</p>`:''}${choices.map(option).join('')}${resetLabel?`<div class="data-actions"><button data-native ${!choices.some(([key])=>this.value[key])||readOnly?'disabled':''}>${resetLabel}</button></div>`:''}<p class="hint">${this.dirtyIn(scope)?'Unsaved choices. Use the main Save button.':'Choices are saved.'} ${applyHint}</p>`;
-  for(const input of detail.querySelectorAll('[data-menu-mod]'))input.onchange=()=>{if(ed.ctx.readOnly?.())return;this.value[input.dataset.menuMod]=input.checked;if(input.dataset.menuMod==='aiChoices'&&input.checked&&!this.value.aiStatusAll)this.value.aiStatus=true;onChange();};
+  for(const input of detail.querySelectorAll('[data-menu-mod]'))input.onchange=()=>{
+   if(ed.ctx.readOnly?.())return;
+   const key=input.dataset.menuMod;
+   this.value[key]=input.checked;
+   if(key==='aiChoices'&&input.checked&&!this.value.aiStatusAll)this.value.aiStatus=true;
+   if(input.checked&&this.value.aiPlusProfiles==='remove'&&['aiChoices','aiStatus','aiStatusAll'].includes(key))this.restoreAIPlusProfiles();
+   onChange();
+  };
   const reset=detail.querySelector('[data-native]');
   if(reset)reset.onclick=()=>{if(ed.ctx.readOnly?.())return;for(const [key]of choices)this.value[key]=false;onChange();};
  }

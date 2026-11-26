@@ -61,6 +61,13 @@ export async function request(route, body) {
 
 export const versusSettings = new BroadcastChannel('tor-versus-settings');
 
+export function randomLoadoutNote({randomLoadoutSlots, randomLoadoutPending}) {
+  if (randomLoadoutPending) return 'Apply Expand Skill & Spell Slots before assigning random teams.';
+  if (randomLoadoutSlots === 8) return 'Random teams can equip up to eight skills and eight spells per fighter.';
+  if (randomLoadoutSlots === 4) return 'Random teams can equip up to four skills and four spells per fighter. Enable and apply Expand Skill & Spell Slots for eight.';
+  return 'Enable and apply Expand Skill & Spell Slots to generate eight-slot loadouts.';
+}
+
 export async function requestExpandedBattles(project, promptText = '24 vs 24 and 30 vs 30 require Expanded Battle Limit. Enable it for this project?') {
   project ??= await request('project');
   if (!project.enabled) throw new Error('Enable Versus in Integrated Mods and save the project.');
@@ -115,6 +122,7 @@ export function installVersus(aiLabels, applyProject, openMods, syncExpansion) {
   const omitSnapshots = $('versus-omit-snapshots');
   const host = $('versus-squads'), check = $('versus-preview'), status = $('versus-status');
   const randomTeams = $('versus-random-teams');
+  const randomLoadout = $('versus-random-loadout');
   const save = $('versus-save'), saveLater = $('versus-save-later'), title = $('versus-match-title');
   const preview = $('versus-map-preview');
   const result = $('versus-result');
@@ -156,7 +164,8 @@ export function installVersus(aiLabels, applyProject, openMods, syncExpansion) {
     const available = data.enabled && data.supported;
     mods.hidden = available;
     setupPanel.hidden = queueLink.hidden = !available;
-    apply.hidden = !available || (installed && data.smallTeams && !expandedNeeded) || data.readOnly;
+    apply.hidden = !available || (installed && data.smallTeams && !expandedNeeded && !data.randomLoadoutPending) || data.readOnly;
+    randomLoadout.textContent = randomLoadoutNote(data);
     projectStatus.textContent = !data.supported ? 'Versus requires Steam 1.0.8.0.'
       : !data.name ? 'Open or create a project, then enable Versus in Integrated Mods.'
       : !data.enabled ? 'Enable Versus in Integrated Mods and save the project.'
